@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 namespace ou {
 
@@ -111,6 +112,16 @@ Shader::~Shader()
     glDeleteProgram(m_id);
 }
 
+Shader::Shader(Shader&& other)
+    : m_id(std::exchange(other.m_id, 0))
+{
+}
+
+Shader& Shader::operator=(Shader&& other)
+{
+    m_id = std::exchange(other.m_id, 0);
+}
+
 void Shader::setUniform(GLint location, int value)
 {
     glUniform1i(location, value);
@@ -121,17 +132,17 @@ void Shader::setUniform(GLint location, float value)
     glUniform1f(location, value);
 }
 
-void Shader::setUniform(GLint location, const glm::vec2 &vec)
+void Shader::setUniform(GLint location, const glm::vec2& vec)
 {
     glUniform2f(location, vec.x, vec.y);
 }
 
-void Shader::setUniform(GLint location, const glm::vec3 &vec)
+void Shader::setUniform(GLint location, const glm::vec3& vec)
 {
     glUniform3f(location, vec.x, vec.y, vec.z);
 }
 
-void Shader::setUniform(GLint location, const glm::vec4 &vec)
+void Shader::setUniform(GLint location, const glm::vec4& vec)
 {
     glUniform4f(location, vec.x, vec.y, vec.z, vec.w);
 }

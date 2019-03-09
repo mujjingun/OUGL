@@ -4,11 +4,128 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "shader.h"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
+#include <iostream>
+
 #include "player.h"
 #include "scene.h"
+#include "shader.h"
 
 namespace ou {
+
+glm::dvec3 applySide(glm::dvec3 const& cube, std::uint16_t side)
+{
+    switch (side) {
+    case 0:
+        return { cube.z, cube.x, cube.y };
+    case 1:
+        return { -cube.z, -cube.x, cube.y };
+    case 2:
+        return { cube.y, cube.z, cube.x };
+    case 3:
+        return { cube.y, -cube.z, -cube.x };
+    case 4:
+        return { cube.x, cube.y, cube.z };
+    case 5:
+        return { -cube.x, cube.y, -cube.z };
+    }
+
+    return {};
+}
+
+std::pair<glm::dvec2, std::uint16_t> cubizePoint(glm::dvec3 const& pos)
+{
+    std::uint16_t side;
+    glm::dvec3 absPos = glm::abs(pos);
+    glm::dvec2 cube;
+    if (absPos.x > absPos.y && absPos.x > absPos.z) {
+        if (pos.x > 0) {
+            side = 0;
+            cube = { pos.y, pos.z };
+        } else {
+            side = 1;
+            cube = { -pos.y, pos.z };
+        }
+    } else if (absPos.y > absPos.x && absPos.y > absPos.z) {
+        if (pos.y > 0) {
+            side = 2;
+            cube = { pos.z, pos.x };
+        } else {
+            side = 3;
+            cube = { -pos.z, pos.x };
+        }
+    } else {
+        if (pos.z > 0) {
+            side = 4;
+            cube = { pos.x, pos.y };
+        } else {
+            side = 5;
+            cube = { -pos.x, pos.y };
+        }
+    }
+
+    const auto sq = cube * cube;
+    const double t0 = 2.0 * sq.y - 2.0 * sq.x - 3.0;
+    const double u0 = std::sqrt(std::max(t0 * t0 - 24.0 * sq.x, 0.0));
+    const double v0 = 2.0 * sq.x - 2.0 * sq.y;
+
+    const double t1 = 2.0 * sq.x - 2.0 * sq.y - 3.0;
+    const double u1 = std::sqrt(std::max(t1 * t1 - 24.0 * sq.y, 0.0));
+    const double v1 = 2.0 * sq.y - 2.0 * sq.x;
+    cube = glm::sqrt(glm::max((3.0 - glm::dvec2(u1 + v1, u0 + v0)) / 2.0, 0.0)) * glm::sign(cube);
+
+    return { cube, side };
+}
+
+std::pair<glm::dvec3, glm::dvec3> derivatives(glm::dvec2 pos, std::uint16_t side)
+{
+    glm::dvec2 sq = pos * pos;
+    glm::dvec3 dx = glm::dvec3{ glm::sqrt(.5 - sq.y / 6.0),
+        -pos.x * pos.y / (6.0 * glm::sqrt(.5 - sq.x / 6.0)),
+        (-pos.x + 2.0 * pos.x * sq.y / 3.0) / (2.0 * glm::sqrt(1.0 - sq.x / 2.0 - sq.y / 2.0 + sq.x * sq.y / 3.0)) };
+    glm::dvec3 dy = glm::dvec3{ -pos.x * pos.y / (6.0 * glm::sqrt(.5 - sq.y / 6.0)),
+        glm::sqrt(.5 - sq.x / 6.0),
+        (-pos.y + 2.0 * sq.x * pos.y / 3.0) / (2.0 * glm::sqrt(1.0 - sq.x / 2.0 - sq.y / 2.0 + sq.x * sq.y / 3.0)) };
+    return { applySide(dx, side), applySide(dy, side) };
+}
+
+struct SecondOrderDerivatives {
+    glm::dvec3 fxx, fxy, fyy;
+};
+
+SecondOrderDerivatives curvature(glm::dvec2 pos, std::uint16_t side)
+{
+    glm::dvec2 sq = pos * pos;
+    double tx = glm::sqrt(.5 - sq.x / 6.0);
+    double ty = glm::sqrt(.5 - sq.y / 6.0);
+    double tt = glm::sqrt(1.0 - sq.x / 2.0 - sq.y / 2.0 + sq.x * sq.y / 3.0);
+    double t0 = -pos.x + 2 * pos.x * sq.y / 3.0;
+    glm::dvec3 fxx = glm::dvec3{ 0,
+        -sq.x * pos.y / 36.0 * tx * tx * tx - pos.y / (6.0 * tx),
+        -t0 * t0 / (4.0 * glm::pow(1.0 - sq.x / 2.0 - sq.y / 2.0 + sq.x * sq.y / 3.0, 1.5))
+            + (-1.0 + 2.0 * sq.y / 3.0) / (2.0 * tt) };
+
+    glm::dvec3 fxy = glm::dvec3{
+        -pos.y / (6.0 * ty), -pos.x / (6.0 * tx),
+        -(pos.y + 2.0 * sq.x * pos.y / 3.0) * (pos.x + 2.0 * sq.y * pos.x / 3.0) / (4.0 * tt * tt * tt)
+            + 2.0 * pos.x * pos.y / (3.0 * tt)
+    };
+
+    double t1 = -pos.y + 2 * pos.y * sq.x / 3.0;
+    glm::dvec3 fyy = glm::dvec3{
+        -sq.y * pos.x / 36.0 * ty * ty * ty - pos.x / (6.0 * ty),
+        0,
+        -t1 * t1 / (4.0 * glm::pow(1.0 - sq.x / 2.0 - sq.y / 2.0 + sq.x * sq.y / 3.0, 1.5))
+            + (-1.0 + 2.0 * sq.x / 3.0) / (2.0 * tt)
+    };
+    return { applySide(fxx, side), applySide(fxy, side), applySide(fyy, side) };
+}
+
+struct InstanceAttrib {
+    glm::vec2 offset;
+    float side;
+};
 
 Planet::Planet()
     : m_vao()
@@ -16,23 +133,17 @@ Planet::Planet()
     , m_instanceAttrBuf()
     , m_shader("shaders/planet.vert.glsl", "shaders/planet.frag.glsl")
 {
-    // Enable binding position 0
-    VertexArray::Attribute posAttr = m_vao.enableVertexAttrib(0);
-
-    // Set format of binding position 0
-    posAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
-
     const std::size_t GRID_SIZE = 10;
     std::vector<glm::vec2> gridPoints;
     for (float col = 0; col < GRID_SIZE; ++col) {
         for (float row = 0; row < GRID_SIZE; ++row) {
             gridPoints.push_back({ row, col });
-            gridPoints.push_back({ row + 1, col + 1 });
             gridPoints.push_back({ row + 1, col });
+            gridPoints.push_back({ row + 1, col + 1 });
 
             gridPoints.push_back({ row, col });
-            gridPoints.push_back({ row, col + 1 });
             gridPoints.push_back({ row + 1, col + 1 });
+            gridPoints.push_back({ row, col + 1 });
         }
     }
 
@@ -46,34 +157,97 @@ Planet::Planet()
     m_buf.setData(gridPoints, GL_STATIC_DRAW);
 
     // Bind vertex buffer to vao binding position 0
-    posAttr.bindVertexBuffer(m_buf, 0, sizeof(glm::vec2));
+    VertexArray::BufferBinding vertexBinding = m_vao.getBinding(0);
+    vertexBinding.bindVertexBuffer(m_buf, 0, sizeof(glm::vec2));
 
-    // Enable binding position 1
+    // Enable binding position 0
+    VertexArray::Attribute posAttr = m_vao.enableVertexAttrib(0);
+
+    // Set format of binding position 0
+    posAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
+    posAttr.setBinding(vertexBinding);
+
+    // Bind instance buffer to vao binding position 1
+    VertexArray::BufferBinding instanceBinding = m_vao.getBinding(1);
+    instanceBinding.bindVertexBuffer(m_instanceAttrBuf, 0, sizeof(InstanceAttrib));
+    instanceBinding.setBindingDivisor(1);
+
+    // Enable binding position 1 and 2
     VertexArray::Attribute offsetAttr = m_vao.enableVertexAttrib(1);
-    offsetAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
-    offsetAttr.setBindingDivisor(1);
+    offsetAttr.setFormat(2, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, offset));
+    offsetAttr.setBinding(instanceBinding);
 
-    std::vector<glm::vec2> instanceOffsets;
-    for (std::size_t i = 0; i < 10; ++i) {
-        instanceOffsets.push_back({ i / 3, i % 3 });
-    }
-    m_instanceAttrBuf.setData(instanceOffsets, GL_STATIC_DRAW);
-
-    offsetAttr.bindVertexBuffer(m_instanceAttrBuf, 0, sizeof(glm::vec2));
+    VertexArray::Attribute sideAttr = m_vao.enableVertexAttrib(2);
+    sideAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, side));
+    sideAttr.setBinding(instanceBinding);
 }
 
 Planet::~Planet() = default;
 
 void Planet::render(const Scene& scene)
 {
+    glEnable(GL_CULL_FACE);
     m_shader.use();
     m_vao.use();
 
-    m_shader.setUniform(0, glm::lookAt({}, scene.player().lookDirection(), scene.player().upDirection()));
+    VoxelCoords centeredPos = scene.player().position() - m_position;
+    if (centeredPos.voxel != glm::i64vec3()) {
+        // planet is more than a voxel away; abort rendering
+        return;
+    }
 
+    glm::dvec3 normPos = glm::normalize(glm::dvec3(centeredPos.pos));
+    auto cubeCoords = cubizePoint(normPos);
+    auto derivs = derivatives(cubeCoords.first, cubeCoords.second);
+    auto curvs = curvature(cubeCoords.first, cubeCoords.second);
+
+    glm::i64vec3 surfacePos = normPos * static_cast<double>(m_planetRadius);
+    glm::i64vec3 surfaceOffset = centeredPos.pos - surfacePos;
+    glm::dvec3 surfaceOffsetInRadiusUnit = glm::dvec3(surfaceOffset) / static_cast<double>(m_planetRadius);
+
+    // view matrix
+    m_shader.setUniform(0,
+        glm::lookAt(surfaceOffsetInRadiusUnit,
+            surfaceOffsetInRadiusUnit + scene.player().lookDirection(),
+            scene.player().upDirection()));
+
+    // projection matrix
     float aspectRatio = static_cast<float>(scene.windowWidth()) / scene.windowHeight();
     m_shader.setUniform(1, glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 10.0f));
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, 10);
+    // origin
+    m_shader.setUniform(2, glm::vec2(cubeCoords.first));
+
+    // xJac
+    m_shader.setUniform(3, glm::vec3(derivs.first));
+
+    // yJac
+    m_shader.setUniform(4, glm::vec3(derivs.second));
+
+    // xxCurv
+    m_shader.setUniform(5, glm::vec3(curvs.fxx));
+
+    // xyCurv
+    m_shader.setUniform(6, glm::vec3(curvs.fxy));
+
+    // yyCurv
+    m_shader.setUniform(7, glm::vec3(curvs.fyy));
+
+    // set data
+    float side = static_cast<float>(cubeCoords.second);
+    std::vector<InstanceAttrib> instanceOffsets = {
+        { { -1, -1 }, side },
+        { { -1, 0 }, side },
+        { { -1, 1 }, side },
+        { { 0, -1 }, side },
+        { { 0, 0 }, side },
+        { { 0, 1 }, side },
+        { { 1, -1 }, side },
+        { { 1, 0 }, side },
+        { { 1, 1 }, side }
+    };
+    m_instanceAttrBuf.setData(instanceOffsets, GL_STATIC_DRAW);
+
+    glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, 9);
 }
 }

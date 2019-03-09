@@ -3,20 +3,51 @@
 #include <GL/freeglut.h>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
 
 #include "scene.h"
 
 std::unique_ptr<ou::Scene> scene;
 
-void renderScene(void)
-{
-    scene->render();
-    glutSwapBuffers();
+namespace ou {
 
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-        std::cerr << gluErrorString(err);
+class Callbacks {
+public:
+    static void renderScene(void)
+    {
+        scene->render();
+        glutSwapBuffers();
+
+        GLenum err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cerr << gluErrorString(err);
+        }
+
+        glutPostRedisplay();
     }
+
+    static void keyboardDown(unsigned char key, int x, int y)
+    {
+        scene->keyDown(key);
+    }
+
+    static void keyboardUp(unsigned char key, int x, int y)
+    {
+        scene->keyUp(key);
+    }
+
+    static void mouseMove(int x, int y)
+    {
+        scene->mouseMove(x, y);
+    }
+
+    static void mouseEntry(int state)
+    {
+        if (state == GLUT_LEFT) {
+            scene->mouseLeave();
+        }
+    }
+};
 }
 
 int main(int argc, char* argv[])
@@ -25,7 +56,7 @@ int main(int argc, char* argv[])
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(100, 100);
-    glutInitWindowSize(320, 320);
+    glutInitWindowSize(600, 480);
     glutCreateWindow("OUGL");
 
     GLenum err = glewInit();
@@ -35,7 +66,11 @@ int main(int argc, char* argv[])
     }
 
     // register callbacks
-    glutDisplayFunc(renderScene);
+    glutKeyboardFunc(ou::Callbacks::keyboardDown);
+    glutKeyboardUpFunc(ou::Callbacks::keyboardUp);
+    glutDisplayFunc(ou::Callbacks::renderScene);
+    glutPassiveMotionFunc(ou::Callbacks::mouseMove);
+    glutEntryFunc(ou::Callbacks::mouseEntry);
 
     try {
         scene = std::make_unique<ou::Scene>();

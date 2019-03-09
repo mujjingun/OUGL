@@ -15,6 +15,12 @@ public:
     Shader(const char* vertex_file_path, const char* fragment_file_path);
     ~Shader();
 
+    Shader(Shader const&) = delete;
+    Shader& operator=(Shader const&) = delete;
+
+    Shader(Shader&& other);
+    Shader& operator=(Shader&& other);
+
     void setUniform(GLint location, int value);
     void setUniform(GLint location, float value);
     void setUniform(GLint location, glm::vec2 const& vec);
