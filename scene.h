@@ -4,13 +4,20 @@
 #include <memory>
 #include <unordered_map>
 #include <chrono>
+#include <vector>
 #include <glm/glm.hpp>
 
 namespace ou {
 
+class Planet;
+class Player;
+struct Parameters;
+
 class Scene {
-    std::unique_ptr<class Planet> m_planet;
-    std::unique_ptr<class Player> m_player;
+    std::unique_ptr<Parameters> m_parameters;
+
+    std::vector<Planet> m_planets;
+    std::unique_ptr<Player> m_player;
 
     std::unordered_map<unsigned char, bool> m_keyStates;
 
@@ -19,15 +26,17 @@ class Scene {
     std::chrono::system_clock::time_point m_lastFrameTime;
     std::chrono::system_clock::duration m_deltaTime;
 
-    glm::ivec2 m_mousePos = { INT_MAX, INT_MAX };
-    glm::ivec2 m_lastMousePos = { INT_MAX, INT_MAX };
-    glm::ivec2 m_realMousePos;
+    glm::dvec2 m_mousePos;
+    glm::dvec2 m_realMousePos;
 
+    glm::dvec2 m_lastMousePos;
+    glm::dvec2 m_smoothedMouseDelta;
+    bool m_mousePosInvalidated = true;
     bool m_captureMouse = false;
     bool m_warpPointer = false;
 
     void mouseMove(int x, int y);
-    void mouseLeave();
+    void mouseEnter();
 
     void keyDown(unsigned char key);
     void keyUp(unsigned char key);
@@ -43,9 +52,11 @@ public:
 
     double deltaTime() const;
 
+    std::vector<Planet> const& planets() const;
     const Player& player() const;
+    const Parameters& params() const;
 
-    glm::ivec2 mouseDelta() const;
+    glm::dvec2 mouseDelta() const;
 
     friend class Callbacks;
 };

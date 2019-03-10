@@ -43,8 +43,8 @@ public:
 
     static void mouseEntry(int state)
     {
-        if (state == GLUT_LEFT) {
-            scene->mouseLeave();
+        if (state == GLUT_ENTERED) {
+            scene->mouseEnter();
         }
     }
 };

@@ -16,25 +16,26 @@ class Scene;
 
 class Planet
 {
-    std::int64_t m_planetRadius = 6371000000000;
+    Scene const *m_scene;
 
-    VoxelCoords m_position = {
-        {0, 0, 0},
-        {4501787352203439, 5564338967149668, 9183814566471351}
-    };
+    std::int64_t m_planetRadius;
+
+    VoxelCoords m_position;
 
     VertexArray m_vao;
 
     VertexBuffer m_buf, m_instanceAttrBuf;
 
-    Shader m_shader;
+    Shader& shader();
 
     std::size_t m_vertexCount;
 
 public:
-    Planet();
-    ~Planet();
-    void render(Scene const& scene);
+    Planet(Scene const* scene);
+    Planet(Scene const* scene, std::int64_t planetRadius, VoxelCoords position);
+    void render();
+    VoxelCoords position() const;
+    std::int64_t planetRadius() const;
 };
 
 }

@@ -8,13 +8,14 @@
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
 
+#include "parameters.h"
 #include "player.h"
 #include "scene.h"
 #include "shader.h"
 
 namespace ou {
 
-glm::dvec3 applySide(glm::dvec3 const& cube, std::uint16_t side)
+glm::dvec3 applySide(glm::dvec3 const& cube, int side)
 {
     switch (side) {
     case 0:
@@ -34,9 +35,14 @@ glm::dvec3 applySide(glm::dvec3 const& cube, std::uint16_t side)
     return {};
 }
 
-std::pair<glm::dvec2, std::uint16_t> cubizePoint(glm::dvec3 const& pos)
+struct CubeCoords {
+    glm::dvec2 pos;
+    int side;
+};
+
+CubeCoords cubizePoint(glm::dvec3 const& pos)
 {
-    std::uint16_t side;
+    int side;
     glm::dvec3 absPos = glm::abs(pos);
     glm::dvec2 cube;
     if (absPos.x > absPos.y && absPos.x > absPos.z) {
@@ -78,7 +84,7 @@ std::pair<glm::dvec2, std::uint16_t> cubizePoint(glm::dvec3 const& pos)
     return { cube, side };
 }
 
-std::pair<glm::dvec3, glm::dvec3> derivatives(glm::dvec2 pos, std::uint16_t side)
+std::pair<glm::dvec3, glm::dvec3> derivatives(glm::dvec2 pos, int side)
 {
     glm::dvec2 sq = pos * pos;
     glm::dvec3 dx = glm::dvec3{ glm::sqrt(.5 - sq.y / 6.0),
@@ -94,7 +100,7 @@ struct SecondOrderDerivatives {
     glm::dvec3 fxx, fxy, fyy;
 };
 
-SecondOrderDerivatives curvature(glm::dvec2 pos, std::uint16_t side)
+SecondOrderDerivatives curvature(glm::dvec2 pos, int side)
 {
     glm::dvec2 sq = pos * pos;
     double tx = glm::sqrt(.5 - sq.x / 6.0);
@@ -119,24 +125,48 @@ SecondOrderDerivatives curvature(glm::dvec2 pos, std::uint16_t side)
         -t1 * t1 / (4.0 * glm::pow(1.0 - sq.x / 2.0 - sq.y / 2.0 + sq.x * sq.y / 3.0, 1.5))
             + (-1.0 + 2.0 * sq.x / 3.0) / (2.0 * tt)
     };
+
     return { applySide(fxx, side), applySide(fxy, side), applySide(fyy, side) };
 }
 
 struct InstanceAttrib {
     glm::vec2 offset;
     float side;
+    float scale;
 };
 
-Planet::Planet()
-    : m_vao()
+VoxelCoords Planet::position() const
+{
+    return m_position;
+}
+
+std::int64_t Planet::planetRadius() const
+{
+    return m_planetRadius;
+}
+
+Shader &Planet::shader()
+{
+    static Shader shader("shaders/planet.vert.glsl", "shaders/planet.frag.glsl");
+    return shader;
+}
+
+Planet::Planet(Scene const* scene)
+    : Planet(scene, 6371000000000, {})
+{
+}
+
+Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
+    : m_scene(scene)
+    , m_planetRadius(planetRadius)
+    , m_position(position)
+    , m_vao()
     , m_buf()
     , m_instanceAttrBuf()
-    , m_shader("shaders/planet.vert.glsl", "shaders/planet.frag.glsl")
 {
-    const std::size_t GRID_SIZE = 10;
     std::vector<glm::vec2> gridPoints;
-    for (float col = 0; col < GRID_SIZE; ++col) {
-        for (float row = 0; row < GRID_SIZE; ++row) {
+    for (float col = 0; col < scene->params().gridSize; ++col) {
+        for (float row = 0; row < scene->params().gridSize; ++row) {
             gridPoints.push_back({ row, col });
             gridPoints.push_back({ row + 1, col });
             gridPoints.push_back({ row + 1, col + 1 });
@@ -148,7 +178,7 @@ Planet::Planet()
     }
 
     for (auto& point : gridPoints) {
-        point = point / static_cast<float>(GRID_SIZE) - .5f;
+        point = point / static_cast<float>(scene->params().gridSize) * 2.f - 1.f;
     }
 
     m_vertexCount = gridPoints.size();
@@ -180,17 +210,18 @@ Planet::Planet()
     VertexArray::Attribute sideAttr = m_vao.enableVertexAttrib(2);
     sideAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, side));
     sideAttr.setBinding(instanceBinding);
+
+    VertexArray::Attribute scaleAttr = m_vao.enableVertexAttrib(3);
+    scaleAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, scale));
+    scaleAttr.setBinding(instanceBinding);
 }
 
-Planet::~Planet() = default;
-
-void Planet::render(const Scene& scene)
+void Planet::render()
 {
-    glEnable(GL_CULL_FACE);
-    m_shader.use();
+    shader().use();
     m_vao.use();
 
-    VoxelCoords centeredPos = scene.player().position() - m_position;
+    VoxelCoords centeredPos = m_scene->player().position() - m_position;
     if (centeredPos.voxel != glm::i64vec3()) {
         // planet is more than a voxel away; abort rendering
         return;
@@ -198,56 +229,74 @@ void Planet::render(const Scene& scene)
 
     glm::dvec3 normPos = glm::normalize(glm::dvec3(centeredPos.pos));
     auto cubeCoords = cubizePoint(normPos);
-    auto derivs = derivatives(cubeCoords.first, cubeCoords.second);
-    auto curvs = curvature(cubeCoords.first, cubeCoords.second);
+    auto derivs = derivatives(cubeCoords.pos, cubeCoords.side);
+    auto curvs = curvature(cubeCoords.pos, cubeCoords.side);
 
     glm::i64vec3 surfacePos = normPos * static_cast<double>(m_planetRadius);
     glm::i64vec3 surfaceOffset = centeredPos.pos - surfacePos;
     glm::dvec3 surfaceOffsetInRadiusUnit = glm::dvec3(surfaceOffset) / static_cast<double>(m_planetRadius);
 
+    // set instance buffer data
+    std::vector<InstanceAttrib> instanceBuffer;
+
+    double distance = glm::length(glm::dvec3(centeredPos.pos - surfacePos));
+    double normalizedDistance = distance / static_cast<double>(m_planetRadius);
+
+    int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+    for (int lod = 0; lod < levelsOfDetail; ++lod) {
+        float side = cubeCoords.side;
+        float scale = glm::pow(.5, lod);
+        double mod = scale * 2. / static_cast<double>(m_scene->params().gridSize);
+        glm::vec2 offset = glm::mod(cubeCoords.pos, mod);
+        instanceBuffer.push_back({ -offset, side, scale });
+    }
+
+    for (int i = 0; i < 6; ++i) {
+        if (i != cubeCoords.side) {
+            instanceBuffer.push_back({ { 0, 0 }, static_cast<float>(i), 1 });
+        }
+    }
+
+    //std::cout << std::fixed << distance / 1000.0 << "m" << std::endl;
+
+    m_instanceAttrBuf.setData(instanceBuffer, GL_STATIC_DRAW);
+
     // view matrix
-    m_shader.setUniform(0,
-        glm::lookAt(surfaceOffsetInRadiusUnit,
-            surfaceOffsetInRadiusUnit + scene.player().lookDirection(),
-            scene.player().upDirection()));
+    glm::dmat4 viewMat = glm::lookAt(surfaceOffsetInRadiusUnit,
+            surfaceOffsetInRadiusUnit + m_scene->player().lookDirection(),
+            m_scene->player().upDirection());
 
     // projection matrix
-    float aspectRatio = static_cast<float>(scene.windowWidth()) / scene.windowHeight();
-    m_shader.setUniform(1, glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 10.0f));
+    double aspectRatio = static_cast<double>(m_scene->windowWidth()) / m_scene->windowHeight();
+    glm::dmat4 projMat = glm::perspective(glm::radians(45.0), aspectRatio, 0.1, 10.0);
+
+    // view-projection matrix
+    shader().setUniform(0, projMat * viewMat);
 
     // origin
-    m_shader.setUniform(2, glm::vec2(cubeCoords.first));
+    shader().setUniform(1, glm::vec2(cubeCoords.pos));
 
     // xJac
-    m_shader.setUniform(3, glm::vec3(derivs.first));
+    shader().setUniform(2, glm::vec3(derivs.first));
 
     // yJac
-    m_shader.setUniform(4, glm::vec3(derivs.second));
+    shader().setUniform(3, glm::vec3(derivs.second));
 
     // xxCurv
-    m_shader.setUniform(5, glm::vec3(curvs.fxx));
+    shader().setUniform(4, glm::vec3(curvs.fxx));
 
     // xyCurv
-    m_shader.setUniform(6, glm::vec3(curvs.fxy));
+    shader().setUniform(5, glm::vec3(curvs.fxy));
 
     // yyCurv
-    m_shader.setUniform(7, glm::vec3(curvs.fyy));
+    shader().setUniform(6, glm::vec3(curvs.fyy));
 
-    // set data
-    float side = static_cast<float>(cubeCoords.second);
-    std::vector<InstanceAttrib> instanceOffsets = {
-        { { -1, -1 }, side },
-        { { -1, 0 }, side },
-        { { -1, 1 }, side },
-        { { 0, -1 }, side },
-        { { 0, 0 }, side },
-        { { 0, 1 }, side },
-        { { 1, -1 }, side },
-        { { 1, 0 }, side },
-        { { 1, 1 }, side }
-    };
-    m_instanceAttrBuf.setData(instanceOffsets, GL_STATIC_DRAW);
+    // playerSide
+    shader().setUniform(7, cubeCoords.side);
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, 9);
+    // levelsOfDetail
+    shader().setUniform(8, static_cast<float>(glm::pow(0.5, levelsOfDetail - 1)));
+
+    glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
 }
 }
