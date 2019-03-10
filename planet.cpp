@@ -133,6 +133,7 @@ struct InstanceAttrib {
     glm::vec2 offset;
     float side;
     float scale;
+    glm::vec4 discardRegion;
 };
 
 VoxelCoords Planet::position() const
@@ -161,7 +162,7 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     , m_planetRadius(planetRadius)
     , m_position(position)
     , m_vao()
-    , m_buf()
+    , m_gridBuf()
     , m_instanceAttrBuf()
 {
     std::vector<glm::vec2> gridPoints;
@@ -184,16 +185,14 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     m_vertexCount = gridPoints.size();
 
     // Create vertex buffer and fill it
-    m_buf.setData(gridPoints, GL_STATIC_DRAW);
+    m_gridBuf.setData(gridPoints, GL_STATIC_DRAW);
 
     // Bind vertex buffer to vao binding position 0
     VertexArray::BufferBinding vertexBinding = m_vao.getBinding(0);
-    vertexBinding.bindVertexBuffer(m_buf, 0, sizeof(glm::vec2));
+    vertexBinding.bindVertexBuffer(m_gridBuf, 0, sizeof(glm::vec2));
 
     // Enable binding position 0
     VertexArray::Attribute posAttr = m_vao.enableVertexAttrib(0);
-
-    // Set format of binding position 0
     posAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
     posAttr.setBinding(vertexBinding);
 
@@ -202,7 +201,7 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     instanceBinding.bindVertexBuffer(m_instanceAttrBuf, 0, sizeof(InstanceAttrib));
     instanceBinding.setBindingDivisor(1);
 
-    // Enable binding position 1 and 2
+    // Enable instance-wise attribute binding positions
     VertexArray::Attribute offsetAttr = m_vao.enableVertexAttrib(1);
     offsetAttr.setFormat(2, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, offset));
     offsetAttr.setBinding(instanceBinding);
@@ -214,6 +213,10 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     VertexArray::Attribute scaleAttr = m_vao.enableVertexAttrib(3);
     scaleAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, scale));
     scaleAttr.setBinding(instanceBinding);
+
+    VertexArray::Attribute discardRegionAttr = m_vao.enableVertexAttrib(4);
+    discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
+    discardRegionAttr.setBinding(instanceBinding);
 }
 
 void Planet::render()
@@ -243,17 +246,40 @@ void Planet::render()
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
     int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+
+    glm::i64vec2 lastSnapNums;
     for (int lod = 0; lod < levelsOfDetail; ++lod) {
         float side = cubeCoords.side;
         float scale = glm::pow(.5, lod);
-        double mod = scale * 2. / static_cast<double>(m_scene->params().gridSize);
-        glm::vec2 offset = glm::mod(cubeCoords.pos, mod);
-        instanceBuffer.push_back({ -offset, side, scale });
+        double cellSize = 1 / static_cast<double>(m_scene->params().gridSize);
+        double mod = scale * 2. * cellSize;
+
+        glm::i64vec2 snapNums = glm::floor(cubeCoords.pos / mod);
+        glm::vec2 offset = cubeCoords.pos - mod * glm::dvec2(snapNums);
+
+        glm::vec4 discardReg = {-.5, -.5, .5, .5};
+        if (lod == levelsOfDetail - 1) {
+            discardReg = {};
+        }
+        if (lod > 0) {
+            glm::ivec2 r = snapNums - lastSnapNums * std::int64_t(2);
+            if (r.x > 0) {
+                instanceBuffer.back().discardRegion.x += cellSize;
+                instanceBuffer.back().discardRegion.z += cellSize;
+            }
+            if (r.y > 0) {
+                instanceBuffer.back().discardRegion.y += cellSize;
+                instanceBuffer.back().discardRegion.w += cellSize;
+            }
+        }
+        lastSnapNums = snapNums;
+
+        instanceBuffer.push_back({ -offset, side, scale, discardReg });
     }
 
     for (int i = 0; i < 6; ++i) {
         if (i != cubeCoords.side) {
-            instanceBuffer.push_back({ { 0, 0 }, static_cast<float>(i), 1 });
+            instanceBuffer.push_back({ { 0, 0 }, static_cast<float>(i), 1, {} });
         }
     }
 
@@ -293,9 +319,6 @@ void Planet::render()
 
     // playerSide
     shader().setUniform(7, cubeCoords.side);
-
-    // levelsOfDetail
-    shader().setUniform(8, static_cast<float>(glm::pow(0.5, levelsOfDetail - 1)));
 
     glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
 }

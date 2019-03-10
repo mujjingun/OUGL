@@ -1,30 +1,28 @@
 #version 430 core
 
-in vec2 uv;
-in vec2 cube;
-in vec3 position;
-in vec3 normal;
-in float logz;
-flat in int drawCenter;
+in vec2 vUv;
+in vec2 vCube;
+in vec3 vPosition;
+in vec3 vNormal;
+in float vLogz;
+flat in vec4 vDiscardReg;
 
 out vec3 color;
 
 void main() {
-    if (cube.x < -1 || cube.y < -1 || cube.x > 1 || cube.y > 1) {
+    if (vCube.x < -1 || vCube.y < -1 || vCube.x > 1 || vCube.y > 1) {
         discard;
     }
 
-    if (drawCenter == 0) {
-        if (uv.x >= -.5 && uv.y >= -.5 && uv.x <= .5 && uv.y <= .5) {
-            discard;
-        }
+    if (vUv.x >= vDiscardReg.x && vUv.y >= vDiscardReg.y && vUv.x <= vDiscardReg.z && vUv.y <= vDiscardReg.w) {
+        discard;
     }
 
-    gl_FragDepth = logz;
+    gl_FragDepth = vLogz;
 
-    color = vec3(uv + .5, 1);
+    color = vec3(vUv + .5, 1);
 
     vec3 lightDir = vec3(0, 0, 1);
-    color = color * max(dot(normal, lightDir), 0.5);
+    color = color * max(dot(vNormal, lightDir), 0.5);
     //color = (normal + 1.0) / 2.0;
 }

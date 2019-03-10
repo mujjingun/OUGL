@@ -8,20 +8,20 @@ layout(location = 4) uniform vec3 xxCurv;
 layout(location = 5) uniform vec3 xyCurv;
 layout(location = 6) uniform vec3 yyCurv;
 layout(location = 7) uniform int playerSide;
-layout(location = 8) uniform float lastLodScale;
 
 layout(location = 0) in vec2 pos;
 
 layout(location = 1) in vec2 offset;
 layout(location = 2) in float side;
 layout(location = 3) in float scale;
+layout(location = 4) in vec4 discardRegion;
 
-out vec2 uv;
-out vec2 cube;
-out vec3 position;
-out vec3 normal;
-out float logz;
-flat out int drawCenter;
+out vec2 vUv;
+out vec2 vCube;
+out vec3 vPosition;
+out vec3 vNormal;
+out float vLogz;
+flat out vec4 vDiscardReg;
 
 vec3 applySide(vec2 cube, int side)
 {
@@ -52,7 +52,8 @@ vec3 spherizePoint(vec3 p)
 }
 
 void main() {
-    uv = pos;
+    vUv = pos;
+    vDiscardReg = discardRegion;
 
     vec2 c = pos * scale + offset;
     if (playerSide == int(side)) {
@@ -61,27 +62,25 @@ void main() {
         vec3 vApprox = c.x * xJac + c.y * yJac + .5 * (c.x * c.x * xxCurv + 2. * c.x * c.y * xyCurv + c.y * c.y * yyCurv);
         float mixFactor = smoothstep(0.0, 0.1, length(c));
 
-        cube = c + origin;
-        position = mix(vApprox, vBroad, mixFactor);
-        normal = mix(normalize(cross(xJac, yJac)), normalize(spherized), mixFactor);
-        drawCenter = int(lastLodScale == scale);
+        vCube = c + origin;
+        vPosition = mix(vApprox, vBroad, mixFactor);
+        vNormal = mix(normalize(cross(xJac, yJac)), normalize(spherized), mixFactor);
     }
     else {
         vec3 spherized = spherizePoint(applySide(c, int(side)));
         vec3 vBroad = spherized - spherizePoint(applySide(origin, playerSide));
 
-        cube = c;
-        position = vBroad;
-        normal = normalize(spherized);
-        drawCenter = 1;
+        vCube = c;
+        vPosition = vBroad;
+        vNormal = normalize(spherized);
     }
 
-    gl_Position = viewProjMat * vec4(position, 1);
+    gl_Position = viewProjMat * vec4(vPosition, 1);
 
     // logarithmic depth
     const float C = 1;
     const float far = 10000.0;
     const float FC = 1.0 / log(far * C + 1);
-    logz = log(gl_Position.w * C + 1) * FC;
-    gl_Position.z = logz * gl_Position.w;
+    vLogz = log(gl_Position.w * C + 1) * FC;
+    gl_Position.z = vLogz * gl_Position.w;
 }

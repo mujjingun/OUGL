@@ -20,7 +20,8 @@ public:
 
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) {
-            std::cerr << gluErrorString(err);
+            std::cerr << "OpenGL Error: " << gluErrorString(err)
+                      << " (" << err << ").\n";
         }
 
         glutPostRedisplay();

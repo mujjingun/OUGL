@@ -24,7 +24,7 @@ class Planet
 
     VertexArray m_vao;
 
-    VertexBuffer m_buf, m_instanceAttrBuf;
+    VertexBuffer m_gridBuf, m_instanceAttrBuf;
 
     Shader& shader();
 
