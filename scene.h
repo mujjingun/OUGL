@@ -7,6 +7,9 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+#include "framebuffer.h"
+#include "texture.h"
+
 namespace ou {
 
 class Planet;
@@ -19,9 +22,8 @@ class Scene {
     std::vector<Planet> m_planets;
     std::unique_ptr<Player> m_player;
 
-    std::unordered_map<unsigned char, bool> m_keyStates;
-
-    int m_windowWidth, m_windowHeight;
+    FrameBuffer m_hdrFrameBuffer;
+    Texture m_hdrColorTexture;
 
     std::chrono::system_clock::time_point m_lastFrameTime;
     std::chrono::system_clock::duration m_deltaTime;
@@ -38,8 +40,12 @@ class Scene {
     void mouseMove(int x, int y);
     void mouseEnter();
 
+    std::unordered_map<unsigned char, bool> m_keyStates;
+
     void keyDown(unsigned char key);
     void keyUp(unsigned char key);
+
+    int m_windowWidth, m_windowHeight;
 
     void reshapeWindow(int width, int height);
 

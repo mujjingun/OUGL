@@ -1,6 +1,7 @@
 #include "framebuffer.h"
 
 #include "rawbufferview.h"
+#include "texture.h"
 
 #include <algorithm>
 
@@ -52,5 +53,10 @@ void FrameBuffer::clear(GLenum buffer, GLint drawbuffer, const GLfloat* value)
 void FrameBuffer::use(GLenum target) const
 {
     glBindFramebuffer(target, m_id);
+}
+
+void FrameBuffer::bindTexture(GLenum target, const Texture &texture, GLint mipLevel)
+{
+    glNamedFramebufferTexture(m_id, target, texture.id(), mipLevel);
 }
 }

@@ -7,6 +7,8 @@ class RawBufferView;
 
 namespace ou {
 
+class Texture;
+
 class FrameBuffer {
     GLuint m_id;
 
@@ -28,6 +30,8 @@ public:
     void clear(GLenum buffer, GLint drawbuffer, const GLfloat* value);
 
     void use(GLenum target) const;
+
+    void bindTexture(GLenum target, Texture const& texture, GLint mipLevel = 0);
 
     GLuint id() const;
 };
