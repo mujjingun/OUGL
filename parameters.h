@@ -10,6 +10,7 @@ struct Parameters {
     int gridSize;
     double smoothingFactor;
     bool renderWireframe;
+    double anglePerPixel;
 };
 }
 

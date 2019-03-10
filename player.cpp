@@ -2,6 +2,7 @@
 
 #include "scene.h"
 #include "planet.h"
+#include "parameters.h"
 
 #include <glm/glm.hpp>
 #include <algorithm>
@@ -59,7 +60,7 @@ void Player::render()
         m_position = m_position - VoxelCoords{ {}, m_lookDirection * moveAmount };
     }
 
-    glm::dvec2 angle = glm::dvec2(m_scene->mouseDelta()) * glm::radians(1.0);
+    glm::dvec2 angle = glm::dvec2(m_scene->mouseDelta()) * glm::radians(m_scene->params().anglePerPixel);
     m_lookDirection = glm::rotate(glm::dmat4(1.0), angle.y, right)
         * glm::rotate(glm::dmat4(1.0), -angle.x, m_upDirection)
         * glm::dvec4(m_lookDirection, 1.0);

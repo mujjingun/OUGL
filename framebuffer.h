@@ -17,9 +17,15 @@ public:
     FrameBuffer();
     ~FrameBuffer();
 
+    FrameBuffer(FrameBuffer const&) = delete;
+    FrameBuffer& operator=(FrameBuffer const&) = delete;
+
+    FrameBuffer(FrameBuffer&& other);
+    FrameBuffer& operator=(FrameBuffer&& other);
+
     static FrameBuffer& defaultBuffer();
 
-    void clear(GLenum buffer, GLint drawbuffer, const GLfloat *value);
+    void clear(GLenum buffer, GLint drawbuffer, const GLfloat* value);
 
     void use(GLenum target) const;
 

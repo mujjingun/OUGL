@@ -17,6 +17,7 @@ add_executable(OUGL
     player.cpp
     voxelcoords.cpp
     parameters.cpp
+    texture.cpp
 )
 target_link_libraries(OUGL GLEW::GLEW ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${GLM_LIBRARIES})
 include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})

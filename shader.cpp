@@ -119,6 +119,7 @@ Shader::Shader(Shader&& other)
 
 Shader& Shader::operator=(Shader&& other)
 {
+    glDeleteProgram(m_id);
     m_id = std::exchange(other.m_id, 0);
 }
 

@@ -2,6 +2,8 @@
 
 #include "rawbufferview.h"
 
+#include <algorithm>
+
 namespace ou {
 
 GLuint FrameBuffer::id() const
@@ -24,6 +26,18 @@ FrameBuffer::FrameBuffer()
 FrameBuffer::~FrameBuffer()
 {
     glDeleteFramebuffers(1, &m_id);
+}
+
+FrameBuffer::FrameBuffer(FrameBuffer &&other)
+    : m_id(std::exchange(other.m_id, 0))
+{
+
+}
+
+FrameBuffer &FrameBuffer::operator=(FrameBuffer &&other)
+{
+    glDeleteFramebuffers(1, &m_id);
+    m_id = std::exchange(other.m_id, 0);
 }
 
 FrameBuffer& FrameBuffer::defaultBuffer()

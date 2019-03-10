@@ -26,6 +26,7 @@ VertexBuffer::VertexBuffer(VertexBuffer&& other)
 
 VertexBuffer& VertexBuffer::operator=(VertexBuffer&& other)
 {
+    glDeleteBuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
 }
 

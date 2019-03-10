@@ -7,6 +7,7 @@ Parameters::Parameters()
     , gridSize(8)
     , smoothingFactor(15)
     , renderWireframe(false)
+    , anglePerPixel(0.5)
 {
 }
 }
