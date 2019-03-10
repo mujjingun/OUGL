@@ -105,6 +105,12 @@ void Scene::keyUp(unsigned char key)
     }
 }
 
+void Scene::reshapeWindow(int width, int height)
+{
+    m_windowWidth = width;
+    m_windowHeight = height;
+}
+
 Scene::Scene()
     : m_parameters(new Parameters)
     , m_player(new Player(this))
@@ -123,24 +129,25 @@ Scene::~Scene() = default;
 
 void Scene::render()
 {
+    // Update time stuff
     auto now = std::chrono::system_clock::now();
     m_deltaTime = now - m_lastFrameTime;
     m_lastFrameTime = now;
 
-    m_windowWidth = glutGet(GLUT_WINDOW_WIDTH);
-    m_windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
-
+    // Clear screen
     float clearColor[] = { 0, 0, 0, 0 };
     FrameBuffer::defaultBuffer().clear(GL_COLOR, 0, clearColor);
     float clearDepth[] = { 1 };
     FrameBuffer::defaultBuffer().clear(GL_DEPTH, 0, clearDepth);
 
+    // Render stuff
     m_player->render();
 
     for (Planet& planet : m_planets) {
         planet.render();
     }
 
+    // Update mouse cursor stuff
     if (m_mousePosInvalidated) {
         m_lastMousePos = m_mousePos;
         m_smoothedMouseDelta = { 0, 0 };

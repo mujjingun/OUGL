@@ -41,6 +41,8 @@ class Scene {
     void keyDown(unsigned char key);
     void keyUp(unsigned char key);
 
+    void reshapeWindow(int width, int height);
+
 public:
     Scene();
     ~Scene();

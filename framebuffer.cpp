@@ -31,7 +31,6 @@ FrameBuffer::~FrameBuffer()
 FrameBuffer::FrameBuffer(FrameBuffer &&other)
     : m_id(std::exchange(other.m_id, 0))
 {
-
 }
 
 FrameBuffer &FrameBuffer::operator=(FrameBuffer &&other)

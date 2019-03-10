@@ -330,6 +330,7 @@ void Planet::render()
     shader().setUniform(7, cubeCoords.side);
 
     m_vao.use();
+
     glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
 }
 }

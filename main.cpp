@@ -27,12 +27,12 @@ public:
         glutPostRedisplay();
     }
 
-    static void keyboardDown(unsigned char key, int x, int y)
+    static void keyboardDown(unsigned char key, int, int)
     {
         scene->keyDown(key);
     }
 
-    static void keyboardUp(unsigned char key, int x, int y)
+    static void keyboardUp(unsigned char key, int, int)
     {
         scene->keyUp(key);
     }
@@ -47,6 +47,11 @@ public:
         if (state == GLUT_ENTERED) {
             scene->mouseEnter();
         }
+    }
+
+    static void reshapeWindow(int width, int height)
+    {
+        scene->reshapeWindow(width, height);
     }
 };
 }
@@ -72,6 +77,7 @@ int main(int argc, char* argv[])
     glutDisplayFunc(ou::Callbacks::renderScene);
     glutPassiveMotionFunc(ou::Callbacks::mouseMove);
     glutEntryFunc(ou::Callbacks::mouseEntry);
+    glutReshapeFunc(ou::Callbacks::reshapeWindow);
 
     try {
         scene = std::make_unique<ou::Scene>();
