@@ -107,6 +107,7 @@ void Scene::keyUp(unsigned char key)
 
 void Scene::reshapeWindow(int width, int height)
 {
+    glViewport(0, 0, width, height);
     m_windowWidth = width;
     m_windowHeight = height;
 }
