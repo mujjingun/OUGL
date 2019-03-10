@@ -18,13 +18,16 @@ add_executable(OUGL
     voxelcoords.cpp
     parameters.cpp
     texture.cpp
+    renderbuffer.cpp
 )
 target_link_libraries(OUGL GLEW::GLEW ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${GLM_LIBRARIES})
 include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
 
 # Copy shaders
-configure_file(shaders/planet.frag.glsl shaders/planet.frag.glsl COPYONLY)
 configure_file(shaders/planet.vert.glsl shaders/planet.vert.glsl COPYONLY)
+configure_file(shaders/planet.frag.glsl shaders/planet.frag.glsl COPYONLY)
+configure_file(shaders/hdr.vert.glsl shaders/hdr.vert.glsl COPYONLY)
+configure_file(shaders/hdr.frag.glsl shaders/hdr.frag.glsl COPYONLY)
 
 # Testing
 #enable_testing()

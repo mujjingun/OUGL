@@ -8,6 +8,7 @@ class RawBufferView;
 namespace ou {
 
 class Texture;
+class RenderBuffer;
 
 class FrameBuffer {
     GLuint m_id;
@@ -32,6 +33,9 @@ public:
     void use(GLenum target) const;
 
     void bindTexture(GLenum target, Texture const& texture, GLint mipLevel = 0);
+    void bindRenderBuffer(GLenum target, RenderBuffer const& renderbuffer);
+
+    bool isComplete() const;
 
     GLuint id() const;
 };

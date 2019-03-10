@@ -107,16 +107,39 @@ void Scene::keyUp(unsigned char key)
 
 void Scene::reshapeWindow(int width, int height)
 {
-    glViewport(0, 0, width, height);
+    if (width == m_windowWidth && height == m_windowHeight) {
+        return;
+    }
+
     m_windowWidth = width;
     m_windowHeight = height;
+
+    // Resize viewport
+    glViewport(0, 0, width, height);
+
+    // Build framebuffer
+    m_hdrFrameBuffer = FrameBuffer();
+
+    m_hdrColorTexture = Texture(GL_TEXTURE_2D);
+    m_hdrColorTexture.setMinFilter(GL_NEAREST);
+    m_hdrColorTexture.setMagFilter(GL_NEAREST);
+    m_hdrColorTexture.allocateStorage2D(1, GL_RGBA16F, width, height);
+    m_hdrFrameBuffer.bindTexture(GL_COLOR_ATTACHMENT0, m_hdrColorTexture);
+
+    m_hdrDepthRenderBuffer = RenderBuffer();
+    m_hdrDepthRenderBuffer.allocateStorage(GL_DEPTH24_STENCIL8, width, height);
+    m_hdrFrameBuffer.bindRenderBuffer(GL_DEPTH_STENCIL_ATTACHMENT, m_hdrDepthRenderBuffer);
+
+    if (!m_hdrFrameBuffer.isComplete()) {
+        std::cerr << "Error building framebuffer\n";
+        throw std::runtime_error("Framebuffer is not complete");
+    }
 }
 
 Scene::Scene()
     : m_parameters(new Parameters)
     , m_player(new Player(this))
-    , m_hdrFrameBuffer()
-    , m_hdrColorTexture(GL_TEXTURE_2D)
+    , m_hdrShader("shaders/hdr.vert.glsl", "shaders/hdr.frag.glsl")
 {
     m_planets.emplace_back(this, 6371000000000, VoxelCoords{ { 0, 0, 0 }, { 4501787352203439, 5564338967149668, 9183814566471351 } });
     m_planets.emplace_back(this, 4000000000000, VoxelCoords{ { 0, 0, 0 }, { 4522158352203439, 5564338967149668, 9204185566471351 } });
@@ -126,7 +149,6 @@ Scene::Scene()
     if (params().renderWireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
-
 }
 
 Scene::~Scene() = default;
@@ -138,18 +160,30 @@ void Scene::render()
     m_deltaTime = now - m_lastFrameTime;
     m_lastFrameTime = now;
 
-    // Clear screen
+    // Clear screen & framebuffer
     float clearColor[] = { 0, 0, 0, 0 };
     FrameBuffer::defaultBuffer().clear(GL_COLOR, 0, clearColor);
+    m_hdrFrameBuffer.clear(GL_COLOR, 0, clearColor);
+
     float clearDepth[] = { 1 };
     FrameBuffer::defaultBuffer().clear(GL_DEPTH, 0, clearDepth);
+    m_hdrFrameBuffer.clear(GL_DEPTH, 0, clearDepth);
 
-    // Render stuff
+    // Render stuff to framebuffer
+    m_hdrFrameBuffer.use(GL_FRAMEBUFFER);
+
     m_player->render();
 
     for (Planet& planet : m_planets) {
         planet.render();
     }
+
+    // apply HDR
+    FrameBuffer::defaultBuffer().use(GL_FRAMEBUFFER);
+    m_hdrVao.use();
+    m_hdrShader.use();
+    m_hdrColorTexture.use(0);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
 
     // Update mouse cursor stuff
     if (m_mousePosInvalidated) {

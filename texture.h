@@ -9,6 +9,7 @@ class Texture {
     GLuint m_id;
 
 public:
+    Texture();
     Texture(GLenum target);
     ~Texture();
 

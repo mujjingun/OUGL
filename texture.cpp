@@ -44,6 +44,11 @@ void Texture::use(GLuint unit) const
     glBindTextureUnit(unit, m_id);
 }
 
+Texture::Texture()
+    : m_id(0)
+{
+}
+
 Texture::Texture(GLenum target)
 {
     glCreateTextures(target, 1, &m_id);

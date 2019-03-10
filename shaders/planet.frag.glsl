@@ -24,5 +24,5 @@ void main() {
 
     vec3 lightDir = vec3(0, 0, 1);
     color = (vNormal + 1.0) / 2.0;
-    color = color * max(dot(vNormal, lightDir), 0.5);
+    color = color * max(dot(vNormal, lightDir) * 10.0, 0.5);
 }
