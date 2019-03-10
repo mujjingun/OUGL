@@ -23,6 +23,6 @@ void main() {
     color = vec3(vUv + .5, 1);
 
     vec3 lightDir = vec3(0, 0, 1);
+    color = (vNormal + 1.0) / 2.0;
     color = color * max(dot(vNormal, lightDir), 0.5);
-    //color = (normal + 1.0) / 2.0;
 }

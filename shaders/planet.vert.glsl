@@ -9,8 +9,10 @@ layout(location = 5) uniform vec3 xyCurv;
 layout(location = 6) uniform vec3 yyCurv;
 layout(location = 7) uniform int playerSide;
 
+// per-vertex attributes
 layout(location = 0) in vec2 pos;
 
+// per-instance attributes
 layout(location = 1) in vec2 offset;
 layout(location = 2) in float side;
 layout(location = 3) in float scale;

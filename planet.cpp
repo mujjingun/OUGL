@@ -146,7 +146,7 @@ std::int64_t Planet::planetRadius() const
     return m_planetRadius;
 }
 
-Shader &Planet::shader()
+Shader& Planet::shader()
 {
     static Shader shader("shaders/planet.vert.glsl", "shaders/planet.frag.glsl");
     return shader;
@@ -221,9 +221,6 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
 
 void Planet::render()
 {
-    shader().use();
-    m_vao.use();
-
     VoxelCoords centeredPos = m_scene->player().position() - m_position;
     if (centeredPos.voxel != glm::i64vec3()) {
         // planet is more than a voxel away; abort rendering
@@ -247,8 +244,11 @@ void Planet::render()
 
     int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
 
+    // LOD 0 for current side
+    instanceBuffer.push_back({ -cubeCoords.pos, static_cast<float>(cubeCoords.side), 1, {} });
+
     glm::i64vec2 lastSnapNums;
-    for (int lod = 0; lod < levelsOfDetail; ++lod) {
+    for (int lod = 1; lod < levelsOfDetail; ++lod) {
         float side = cubeCoords.side;
         float scale = glm::pow(.5, lod);
         double cellSize = 1 / static_cast<double>(m_scene->params().gridSize);
@@ -257,11 +257,14 @@ void Planet::render()
         glm::i64vec2 snapNums = glm::floor(cubeCoords.pos / mod);
         glm::vec2 offset = cubeCoords.pos - mod * glm::dvec2(snapNums);
 
-        glm::vec4 discardReg = {-.5, -.5, .5, .5};
-        if (lod == levelsOfDetail - 1) {
-            discardReg = {};
+        if (lod == 1) {
+            glm::vec2 off = mod * glm::dvec2(snapNums);
+            instanceBuffer.back().discardRegion.x = -.5 + off.x;
+            instanceBuffer.back().discardRegion.z = .5 + off.x;
+            instanceBuffer.back().discardRegion.y = -.5 + off.y;
+            instanceBuffer.back().discardRegion.w = .5 + off.y;
         }
-        if (lod > 0) {
+        if (lod > 1) {
             glm::ivec2 r = snapNums - lastSnapNums * std::int64_t(2);
             if (r.x > 0) {
                 instanceBuffer.back().discardRegion.x += cellSize;
@@ -274,6 +277,10 @@ void Planet::render()
         }
         lastSnapNums = snapNums;
 
+        glm::vec4 discardReg = { -.5, -.5, .5, .5 };
+        if (lod == levelsOfDetail - 1) {
+            discardReg = {};
+        }
         instanceBuffer.push_back({ -offset, side, scale, discardReg });
     }
 
@@ -289,12 +296,14 @@ void Planet::render()
 
     // view matrix
     glm::dmat4 viewMat = glm::lookAt(surfaceOffsetInRadiusUnit,
-            surfaceOffsetInRadiusUnit + m_scene->player().lookDirection(),
-            m_scene->player().upDirection());
+        surfaceOffsetInRadiusUnit + m_scene->player().lookDirection(),
+        m_scene->player().upDirection());
 
     // projection matrix
     double aspectRatio = static_cast<double>(m_scene->windowWidth()) / m_scene->windowHeight();
     glm::dmat4 projMat = glm::perspective(glm::radians(45.0), aspectRatio, 0.1, 10.0);
+
+    shader().use();
 
     // view-projection matrix
     shader().setUniform(0, projMat * viewMat);
@@ -320,6 +329,7 @@ void Planet::render()
     // playerSide
     shader().setUniform(7, cubeCoords.side);
 
+    m_vao.use();
     glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
 }
 }

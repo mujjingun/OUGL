@@ -9,6 +9,7 @@ struct Parameters {
     int maxLods;
     int gridSize;
     double smoothingFactor;
+    bool renderWireframe;
 };
 }
 
