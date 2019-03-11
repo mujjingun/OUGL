@@ -28,6 +28,7 @@ configure_file(shaders/planet.vert.glsl shaders/planet.vert.glsl COPYONLY)
 configure_file(shaders/planet.frag.glsl shaders/planet.frag.glsl COPYONLY)
 configure_file(shaders/hdr.vert.glsl shaders/hdr.vert.glsl COPYONLY)
 configure_file(shaders/hdr.frag.glsl shaders/hdr.frag.glsl COPYONLY)
+configure_file(shaders/terrain.comp.glsl shaders/terrain.comp.glsl COPYONLY)
 
 # Testing
 #enable_testing()

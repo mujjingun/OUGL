@@ -13,6 +13,7 @@ class Shader {
 public:
     Shader();
     Shader(const char* vertex_file_path, const char* fragment_file_path);
+    Shader(const char* comp_file_path);
     ~Shader();
 
     Shader(Shader const&) = delete;

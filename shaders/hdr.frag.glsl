@@ -2,7 +2,7 @@
 
 in vec2 vTexCoords;
 
-layout(location = 0) uniform sampler2D screenTexture;
+layout(binding = 0) uniform sampler2D screenTexture;
 
 out vec4 FragColor;
 

@@ -11,6 +11,8 @@ struct Parameters {
     double smoothingFactor;
     bool renderWireframe;
     double anglePerPixel;
+    int terrainTextureSize;
+    int terrainTextureCount;
 };
 }
 

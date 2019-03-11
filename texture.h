@@ -27,10 +27,15 @@ public:
     void setMagFilter(GLint param);
 
     void allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height);
-    void setSubImage2D(GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
+    void uploadTexture2D(GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
+        GLenum format, GLenum type, const void* pixels);
+
+    void allocateStoarge3D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height, GLsizei depth);
+    void uploadTexture3D(GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth,
         GLenum format, GLenum type, const void* pixels);
 
     void use(GLuint unit) const;
+    void useAsImage(GLuint unit, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
 };
 }
 

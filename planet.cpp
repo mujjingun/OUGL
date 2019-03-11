@@ -152,6 +152,12 @@ Shader& Planet::shader()
     return shader;
 }
 
+Shader& Planet::terrainShader()
+{
+    static Shader shader("shaders/terrain.comp.glsl");
+    return shader;
+}
+
 Planet::Planet(Scene const* scene)
     : Planet(scene, 6371000000000, {})
 {
@@ -164,6 +170,7 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     , m_vao()
     , m_gridBuf()
     , m_instanceAttrBuf()
+    , m_terrainTextures(GL_TEXTURE_2D_ARRAY)
 {
     std::vector<glm::vec2> gridPoints;
     for (float col = 0; col < scene->params().gridSize; ++col) {
@@ -217,6 +224,21 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     VertexArray::Attribute discardRegionAttr = m_vao.enableVertexAttrib(4);
     discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
     discardRegionAttr.setBinding(instanceBinding);
+
+    // Make terrain heightmap textures
+    const int terrainTextureSize = m_scene->params().terrainTextureSize;
+    m_terrainTextures.setMinFilter(GL_NEAREST);
+    m_terrainTextures.setMagFilter(GL_LINEAR);
+    m_terrainTextures.allocateStoarge3D(1, GL_RGBA32F,
+        terrainTextureSize, terrainTextureSize, // width, height
+        m_scene->params().terrainTextureCount); // array size
+
+    m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    terrainShader().use();
+    terrainShader().setUniform(0, glm::vec4(-1, -1, 1, 1));
+    terrainShader().setUniform(1, 4);
+    glDispatchCompute(terrainTextureSize / 32, terrainTextureSize / 32, 1);
+    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
 void Planet::render()
@@ -247,7 +269,7 @@ void Planet::render()
     // LOD 0 for current side
     instanceBuffer.push_back({ -cubeCoords.pos, static_cast<float>(cubeCoords.side), 1, {} });
 
-    glm::i64vec2 lastSnapNums;
+    glm::i64vec2 parentSnapNums;
     for (int lod = 1; lod < levelsOfDetail; ++lod) {
         float side = cubeCoords.side;
         float scale = glm::pow(.5, lod);
@@ -265,17 +287,13 @@ void Planet::render()
             instanceBuffer.back().discardRegion.w = .5 + off.y;
         }
         if (lod > 1) {
-            glm::ivec2 r = snapNums - lastSnapNums * std::int64_t(2);
-            if (r.x > 0) {
-                instanceBuffer.back().discardRegion.x += cellSize;
-                instanceBuffer.back().discardRegion.z += cellSize;
-            }
-            if (r.y > 0) {
-                instanceBuffer.back().discardRegion.y += cellSize;
-                instanceBuffer.back().discardRegion.w += cellSize;
-            }
+            glm::ivec2 r = snapNums - parentSnapNums * std::int64_t(2);
+            instanceBuffer.back().discardRegion.x += r.x * cellSize;
+            instanceBuffer.back().discardRegion.z += r.x * cellSize;
+            instanceBuffer.back().discardRegion.y += r.y * cellSize;
+            instanceBuffer.back().discardRegion.w += r.y * cellSize;
         }
-        lastSnapNums = snapNums;
+        parentSnapNums = snapNums;
 
         glm::vec4 discardReg = { -.5, -.5, .5, .5 };
         if (lod == levelsOfDetail - 1) {
@@ -330,7 +348,7 @@ void Planet::render()
     shader().setUniform(7, cubeCoords.side);
 
     m_vao.use();
-
+    m_terrainTextures.use(0);
     glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
 }
 }

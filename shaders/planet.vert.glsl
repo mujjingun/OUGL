@@ -18,33 +18,42 @@ layout(location = 2) in float side;
 layout(location = 3) in float scale;
 layout(location = 4) in vec4 discardRegion;
 
+layout(binding = 0) uniform sampler2DArray tex;
+
 out vec2 vUv;
 out vec2 vCube;
-out vec3 vPosition;
-out vec3 vNormal;
+out vec3 vFx, vFy;
 out float vLogz;
+flat out float vScale;
 flat out vec4 vDiscardReg;
+flat out int vInstanceID;
 
-vec3 applySide(vec2 cube, int side)
+vec3 applySide(vec3 cube, int side)
 {
     switch (side) {
     case 0:
-        return vec3( 1, cube.x, cube.y );
+        return vec3( cube.z, cube.x, cube.y );
     case 1:
-        return vec3( -1, -cube.x, cube.y );
+        return vec3( -cube.z, -cube.x, cube.y );
     case 2:
-        return vec3( cube.y, 1, cube.x );
+        return vec3( cube.y, cube.z, cube.x );
     case 3:
-        return vec3( cube.y, -1, -cube.x );
+        return vec3( cube.y, -cube.z, -cube.x );
     case 4:
-        return vec3( cube.x, cube.y, 1 );
+        return vec3( cube.x, cube.y, cube.z );
     case 5:
-        return vec3( -cube.x, cube.y, -1 );
+        return vec3( -cube.x, cube.y, -cube.z );
     }
 }
 
-vec3 spherizePoint(vec3 p)
+vec3 applySide(vec2 cube, int side)
 {
+    return applySide(vec3(cube, 1.0), side);
+}
+
+vec3 spherizePoint(vec2 q, int side)
+{
+    vec3 p = applySide(q, side);
     vec3 sq = p * p;
     return vec3(
         p.x * sqrt(max(1 - sq.y / 2 - sq.z / 2 + sq.y * sq.z / 3, 0.0)),
@@ -53,31 +62,68 @@ vec3 spherizePoint(vec3 p)
     );
 }
 
+void derivative(vec2 cube, int side, out vec3 dfdx, out vec3 dfdy)
+{
+    vec2 sq = cube * cube;
+    float t = .5 * inversesqrt(1 - sq.x / 2 - sq.y / 2 + sq.x * sq.y / 3);
+    dfdx = vec3(sqrt(.5 - sq.y / 6),
+                -cube.x * cube.y / 6 * inversesqrt(.5 - sq.x / 6),
+                t * (2. / 3. * sq.y * cube.x - cube.x));
+    dfdx = applySide(dfdx, side);
+
+    dfdy = vec3(-cube.x * cube.y / 6 * inversesqrt(.5 - sq.y / 6),
+                sqrt(.5 - sq.x / 6),
+                t * (2. / 3. * sq.x * cube.y - cube.y));
+    dfdy = applySide(dfdy, side);
+}
+
 void main() {
     vUv = pos;
     vDiscardReg = discardRegion;
+    vInstanceID = 0;//gl_InstanceID;
+    vScale = scale;
 
     vec2 c = pos * scale + offset;
+    vec3 position, normal;
     if (playerSide == int(side)) {
-        vec3 spherized = spherizePoint(applySide(c + origin, int(side)));
-        vec3 vBroad = spherized - spherizePoint(applySide(origin, playerSide));
+        vCube = c + origin;
+
+        vec3 spherized = spherizePoint(vCube, playerSide);
+        vec3 vBroad = spherized - spherizePoint(origin, playerSide);
         vec3 vApprox = c.x * xJac + c.y * yJac + .5 * (c.x * c.x * xxCurv + 2. * c.x * c.y * xyCurv + c.y * c.y * yyCurv);
         float mixFactor = smoothstep(0.0, 0.1, length(c));
 
-        vCube = c + origin;
-        vPosition = mix(vApprox, vBroad, mixFactor);
-        vNormal = mix(normalize(cross(xJac, yJac)), normalize(spherized), mixFactor);
+        position = mix(vApprox, vBroad, mixFactor);
+
+        vec3 fxApprox = xJac + xxCurv * c.x + xyCurv * c.y;
+        vec3 fyApprox = yJac + xyCurv * c.x + yyCurv * c.y;
+        vec3 fxBroad, fyBroad; derivative(vCube, playerSide, fxBroad, fyBroad);
+        vFx = mix(fxApprox, fxBroad, mixFactor);
+        vFy = mix(fyApprox, fyBroad, mixFactor);
+
+        vec3 nApprox = normalize(cross(fxApprox, fyApprox));
+        normal = normalize(mix(nApprox, normalize(spherized), mixFactor));
     }
     else {
-        vec3 spherized = spherizePoint(applySide(c, int(side)));
-        vec3 vBroad = spherized - spherizePoint(applySide(origin, playerSide));
-
         vCube = c;
-        vPosition = vBroad;
-        vNormal = normalize(spherized);
+
+        vec3 spherized = spherizePoint(vCube, int(side));
+        vec3 vBroad = spherized - spherizePoint(origin, playerSide);
+
+        position = vBroad;
+
+        vec3 fxBroad, fyBroad; derivative(vCube, int(side), fxBroad, fyBroad);
+        vFx = fxBroad;
+        vFy = fyBroad;
+
+        normal = normalize(spherized);
     }
 
-    gl_Position = viewProjMat * vec4(vPosition, 1);
+    vec2 uv = (vUv + 1.0) * .5;
+    float height = texture(tex, vec3(uv, 0)).r;
+    position += normal * height;
+
+    gl_Position = viewProjMat * vec4(position, 1);
 
     // logarithmic depth
     const float C = 1;

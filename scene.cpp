@@ -144,11 +144,6 @@ Scene::Scene()
     m_planets.emplace_back(this, 6371000000000, VoxelCoords{ { 0, 0, 0 }, { 4501787352203439, 5564338967149668, 9183814566471351 } });
     m_planets.emplace_back(this, 4000000000000, VoxelCoords{ { 0, 0, 0 }, { 4522158352203439, 5564338967149668, 9204185566471351 } });
     glEnable(GL_CULL_FACE);
-    glEnable(GL_DEPTH_TEST);
-
-    if (params().renderWireframe) {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    }
 }
 
 Scene::~Scene() = default;
@@ -171,6 +166,11 @@ void Scene::render()
 
     // Render stuff to framebuffer
     m_hdrFrameBuffer.use(GL_FRAMEBUFFER);
+    glEnable(GL_DEPTH_TEST);
+
+    if (params().renderWireframe) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
 
     m_player->render();
 
@@ -180,6 +180,12 @@ void Scene::render()
 
     // apply HDR
     FrameBuffer::defaultBuffer().use(GL_FRAMEBUFFER);
+    glDisable(GL_DEPTH_TEST);
+
+    if (params().renderWireframe) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+
     m_hdrVao.use();
     m_hdrShader.use();
     m_hdrColorTexture.use(0);

@@ -9,6 +9,7 @@
 #include "vertexbuffer.h"
 #include "shader.h"
 #include "voxelcoords.h"
+#include "texture.h"
 
 namespace ou {
 
@@ -26,7 +27,10 @@ class Planet
 
     VertexBuffer m_gridBuf, m_instanceAttrBuf;
 
+    Texture m_terrainTextures;
+
     Shader& shader();
+    Shader& terrainShader();
 
     std::size_t m_vertexCount;
 
