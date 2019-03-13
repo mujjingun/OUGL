@@ -6,19 +6,20 @@ find_package(GLUT REQUIRED)
 find_package(glm REQUIRED)
 
 add_executable(OUGL
-    main.cpp
-    scene.cpp
-    planet.cpp
-    shader.cpp
-    vertexarray.cpp
-    vertexbuffer.cpp
-    rawbufferview.cpp
-    framebuffer.cpp
-    player.cpp
-    voxelcoords.cpp
-    parameters.cpp
-    texture.cpp
-    renderbuffer.cpp
+    src/main.cpp
+    src/scene.cpp
+    src/planet.cpp
+    src/shader.cpp
+    src/vertexarray.cpp
+    src/vertexbuffer.cpp
+    src/rawbufferview.cpp
+    src/framebuffer.cpp
+    src/player.cpp
+    src/voxelcoords.cpp
+    src/parameters.cpp
+    src/texture.cpp
+    src/renderbuffer.cpp
+    src/terrain.cpp
 )
 target_link_libraries(OUGL GLEW::GLEW ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${GLM_LIBRARIES})
 include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})

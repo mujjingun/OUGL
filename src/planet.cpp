@@ -133,13 +133,6 @@ SecondOrderDerivatives curvature(glm::dvec2 pos, int side)
     return { applySide(fxx, side), applySide(fxy, side), applySide(fyy, side) };
 }
 
-struct InstanceAttrib {
-    glm::vec2 offset;
-    float side;
-    float scale;
-    glm::vec4 discardRegion;
-};
-
 VoxelCoords Planet::position() const
 {
     return m_position;
@@ -177,6 +170,14 @@ Planet::Planet(Scene const* scene)
     : Planet(scene, 6371000000000, {})
 {
 }
+
+struct InstanceAttrib {
+    glm::vec2 offset;
+    float side;
+    float scale;
+    glm::vec4 discardRegion;
+    glm::vec2 modOrigin;
+};
 
 Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     : m_scene(scene)
@@ -237,6 +238,10 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
     discardRegionAttr.setBinding(instanceBinding);
 
+    VertexArray::Attribute modOriginAttr = m_vao.enableVertexAttrib(5);
+    modOriginAttr.setFormat(2, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, modOrigin));
+    modOriginAttr.setBinding(instanceBinding);
+
     // Make terrain heightmap textures
     const int terrainTextureSize = m_scene->params().terrainTextureSize;
     m_terrainTextures.setWrapS(GL_CLAMP_TO_EDGE);
@@ -278,20 +283,22 @@ void Planet::render()
 
     for (int i = 0; i < 6; ++i) {
         if (i == cubeCoords.side) {
-            instanceBuffer.push_back({ -cubeCoords.pos, static_cast<float>(i), 1, {} });
+            instanceBuffer.push_back({ -cubeCoords.pos, static_cast<float>(i), 1, {}, {} });
         } else {
-            instanceBuffer.push_back({ { 0, 0 }, static_cast<float>(i), 1, {} });
+            instanceBuffer.push_back({ { 0, 0 }, static_cast<float>(i), 1, {}, {} });
         }
     }
 
     double distance = distanceFromGround(centeredPos.pos);
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
-    int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+    int levelsOfDetail = glm::clamp(-2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
     struct LodUpdateData {
         glm::vec4 region;
+        glm::vec2 origin;
+        glm::vec2 oldOrigin;
         int lod;
         glm::vec3 padding;
     };
@@ -299,16 +306,26 @@ void Planet::render()
     for (int lod = 1; lod < levelsOfDetail; ++lod) {
         float side = cubeCoords.side;
         float scale = glm::pow(.5, lod);
-        double cellSize = 1 / static_cast<double>(m_scene->params().snapSize);
+        double snapSize = m_scene->params().snapSize;
+        double cellSize = 1 / snapSize;
         double mod = scale * 2. * cellSize;
 
         glm::i64vec2 snapNums = glm::floor(cubeCoords.pos / mod);
         currentSnapNums.push_back(snapNums);
 
+        glm::vec2 modOrigin = glm::mod(glm::dvec2(snapNums), snapSize) / snapSize;
         if (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums) {
             glm::dvec2 center = glm::dvec2(snapNums) * mod;
             glm::vec4 region = { center.x - scale, center.y - scale, center.x + scale, center.y + scale };
-            lodUpdates.push_back({ region, lod, {} });
+            glm::vec2 oldOrigin;
+            if (lod >= int(m_snapNums.size())) {
+                oldOrigin = modOrigin;
+            }
+            else {
+                oldOrigin = glm::mod(glm::dvec2(m_snapNums[lod]), snapSize) / snapSize;
+            }
+            //std::cout << to_string(oldOrigin - modOrigin) << std::endl;
+            lodUpdates.push_back({ region, modOrigin, oldOrigin, lod, {} });
         }
 
         if (lod == 1) {
@@ -325,7 +342,7 @@ void Planet::render()
         }
 
         glm::vec2 offset = cubeCoords.pos - mod * glm::dvec2(snapNums);
-        instanceBuffer.push_back({ -offset, side, scale, {} });
+        instanceBuffer.push_back({ -offset, side, scale, {}, modOrigin });
     }
     m_snapNums = currentSnapNums;
 

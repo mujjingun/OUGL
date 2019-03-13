@@ -10,7 +10,7 @@ Parameters::Parameters()
     , renderWireframe(false)
     , anglePerPixel(0.5)
     , terrainTextureSize(1024)
-    , terrainTextureCount(30)
+    , terrainTextureCount(maxLods + 6)
 {
 }
 }

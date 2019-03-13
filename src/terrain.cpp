@@ -103,7 +103,7 @@ static float ridgeWithOctaves(vec3 const& v, int n)
     float coeff = 1.0f;
     for (int i = 0; i < n; ++i) {
         float t = ridgeNoise(v * coeff) / coeff;
-        //t = sign(t) * pow(abs(t), 0.8f);
+        t = sign(t) * pow(abs(t), 0.9f);
         F += t * F;
         coeff *= 2;
     }

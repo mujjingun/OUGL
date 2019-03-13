@@ -13,18 +13,16 @@ namespace ou {
 
 class Callbacks {
 public:
+    static void timer(int)
+    {
+        glutPostRedisplay();
+        glutTimerFunc(1000 / 60, timer, 0);
+    }
+
     static void renderScene(void)
     {
         scene->render();
         glutSwapBuffers();
-
-        GLenum err = glGetError();
-        if (err != GL_NO_ERROR) {
-            std::cerr << "OpenGL Error: " << gluErrorString(err)
-                      << " (" << err << ").\n";
-        }
-
-        glutPostRedisplay();
     }
 
     static void keyboardDown(unsigned char key, int, int)
@@ -60,6 +58,70 @@ public:
     {
         scene->reshapeWindow(width, height);
     }
+
+    static void openglDebugCallback(GLenum source, GLenum type, GLenum id, GLenum severity,
+        GLsizei length, const GLchar* message, const void* userParam)
+    {
+        const char* type_str;
+        switch (type) {
+        case GL_DEBUG_TYPE_ERROR:
+            type_str = "ERROR";
+            break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+            type_str = "DEPRECATED_BEHAVIOR";
+            break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+            type_str = "UNDEFINED_BEHAVIOR";
+            break;
+        case GL_DEBUG_TYPE_PORTABILITY:
+            type_str = "PORTABILITY";
+            break;
+        case GL_DEBUG_TYPE_PERFORMANCE:
+            type_str = "PERFORMANCE";
+            break;
+        case GL_DEBUG_TYPE_MARKER:
+            type_str = "MARKER";
+            break;
+        case GL_DEBUG_TYPE_PUSH_GROUP:
+            type_str = "PUSH_GROUP";
+            break;
+        case GL_DEBUG_TYPE_POP_GROUP:
+            type_str = "POP_GROUP";
+            break;
+        case GL_DEBUG_TYPE_OTHER:
+            type_str = "OTHER";
+            break;
+        }
+
+        const char* sev_str;
+        switch (severity) {
+        case GL_DEBUG_SEVERITY_HIGH:
+            sev_str = "HIGH";
+            break;
+        case GL_DEBUG_SEVERITY_MEDIUM:
+            sev_str = "MEDIUM";
+            break;
+        case GL_DEBUG_SEVERITY_LOW:
+            sev_str = "LOW";
+            break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            sev_str = "NOTIFICATION";
+        }
+
+        if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+            std::clog << "OpenGL Message: " << message
+                      << " type=" << type_str
+                      << " severity=" << sev_str
+                      << "\n";
+
+        }
+        else {
+            std::cerr << "OpenGL Message: " << message
+                      << " type=" << type_str
+                      << " severity=" << sev_str
+                      << "\n";
+        }
+    }
 };
 }
 
@@ -86,6 +148,10 @@ int main(int argc, char* argv[])
     glutEntryFunc(ou::Callbacks::mouseEntry);
     glutReshapeFunc(ou::Callbacks::reshapeWindow);
     glutMouseFunc(ou::Callbacks::mouseEvent);
+    glutTimerFunc(0, ou::Callbacks::timer, 0);
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(ou::Callbacks::openglDebugCallback, nullptr);
 
     try {
         scene = std::make_unique<ou::Scene>();
@@ -95,6 +161,8 @@ int main(int argc, char* argv[])
     } catch (std::exception const& e) {
         std::cerr << "Exception caught while running program: " << e.what() << "\n";
     }
+
+    glutExit();
 
     return 0;
 }

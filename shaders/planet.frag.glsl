@@ -6,17 +6,18 @@ in vec3 vFx, vFy;
 in float vLogz;
 flat in float vScale;
 flat in vec4 vDiscardReg;
-flat in int vInstanceID;
+flat in int vTexIdx;
+flat in vec2 vModOrigin;
 
 layout(binding = 0) uniform sampler2DArray tex;
 
 out vec3 color;
 
 vec2 getGradient(vec2 uv, float span) {
-    const float h01 = textureOffset(tex, vec3(uv, vInstanceID), ivec2(-1, 0)).x;
-    const float h21 = textureOffset(tex, vec3(uv, vInstanceID), ivec2(1, 0)).x;
-    const float h10 = textureOffset(tex, vec3(uv, vInstanceID), ivec2(0, -1)).x;
-    const float h12 = textureOffset(tex, vec3(uv, vInstanceID), ivec2(0, 1)).x;
+    const float h01 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(-1, 0)).x;
+    const float h21 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(1, 0)).x;
+    const float h10 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, -1)).x;
+    const float h12 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, 1)).x;
 
     const ivec3 size = textureSize(tex, 0);
     return vec2(h21 - h01, h12 - h10) * size.xy / span;
@@ -42,15 +43,17 @@ void main() {
 
     gl_FragDepth = vLogz;
 
-    vec2 uv = (vUv + 1.0) * .5;
-    float height = texture(tex, vec3(uv, 0)).r;
+    float t = 0.001;
+    vec2 uv = (vUv + t) * (1.0 - t * 2);
+    uv = (uv + 1.0) * .5;
+    uv = mod(uv + vModOrigin, 1);
+    vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
+    float height = mapValue.r;
 
-    color = vec3(uv, 1.0);
+    color = mix(vec3(0.1, 0.8, 0.1), vec3(0.0, 0.0, 0.7), step(height, 0.0));
 
     vec3 lightDir = vec3(0, 0, 1);
     vec3 normal = getNormal(uv, vScale);
 
-    color = (normal + 1.0) / 2.0;
-    //color = texture(tex, vec3(uv, 0)).rrr;
-    color = color * max(dot(normal, lightDir) * 1.0, 0.1);
+    color *= max(dot(normal, lightDir) * 1.0, 0.001);
 }

@@ -1,10 +1,25 @@
 #version 430
 #define WORKGROUP_SIZE 32
+#define MAX_LODS 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2DArray image;
 
-layout(location = 0) uniform vec4 region;
-layout(location = 1) uniform int side;
+struct Lod
+{
+    vec4 region;
+    vec2 origin;
+    vec2 oldOrigin;
+    int idx;
+};
+
+layout(std140, binding = 1) uniform UpdateData
+{
+    Lod uLods[MAX_LODS];
+};
+
+// side == -1: z = side
+// side >= 0: z = lod
+layout(location = 0) uniform int side;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 
@@ -98,6 +113,7 @@ float snoise(vec3 v) {
 float ridgeNoise(vec3 v)
 {
     return 2 * (.5 - abs(0.5 - snoise(v)));
+    //return -abs(abs(2 * snoise(v)) - 1) + 1;
 }
 
 float ridgeWithOctaves(vec3 v, int n)
@@ -106,7 +122,7 @@ float ridgeWithOctaves(vec3 v, int n)
     float coeff = 1.0f;
     for (int i = 0; i < n; ++i) {
         float t = ridgeNoise(v * coeff) / coeff;
-        //t = sign(t) * pow(abs(t), 0.8f);
+        t = sign(t) * pow(abs(t), 0.9f);
         F += t * F;
         coeff *= 2;
     }
@@ -114,26 +130,32 @@ float ridgeWithOctaves(vec3 v, int n)
     return F;
 }
 
-vec3 applySide(vec2 cube, int side)
+vec3 applySide(vec3 cube, int side)
 {
     switch (side) {
     case 0:
-        return vec3( 1, cube.x, cube.y );
+        return vec3( cube.z, cube.x, cube.y );
     case 1:
-        return vec3( -1, -cube.x, cube.y );
+        return vec3( -cube.z, -cube.x, cube.y );
     case 2:
-        return vec3( cube.y, 1, cube.x );
+        return vec3( cube.y, cube.z, cube.x );
     case 3:
-        return vec3( cube.y, -1, -cube.x );
+        return vec3( cube.y, -cube.z, -cube.x );
     case 4:
-        return vec3( cube.x, cube.y, 1 );
+        return vec3( cube.x, cube.y, cube.z );
     case 5:
-        return vec3( -cube.x, cube.y, -1 );
+        return vec3( -cube.x, cube.y, -cube.z );
     }
 }
 
-vec3 spherizePoint(vec3 p)
+vec3 applySide(vec2 cube, int side)
 {
+    return applySide(vec3(cube, 1.0), side);
+}
+
+vec3 spherizePoint(vec2 q, int side)
+{
+    vec3 p = applySide(q, side);
     vec3 sq = p * p;
     return vec3(
         p.x * sqrt(max(1 - sq.y / 2 - sq.z / 2 + sq.y * sq.z / 3, 0.0)),
@@ -145,11 +167,59 @@ vec3 spherizePoint(vec3 p)
 void main() {
     ivec3 pixel_coords = ivec3(gl_GlobalInvocationID.xyz);
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(imageSize(image).xy);
-    vec2 xy = mix(region.xy, region.zw, uv);
-    vec3 pos = spherizePoint(applySide(xy, side));
 
-    float height = ridgeWithOctaves(pos * 3.0, 20);
-    height = max(0, height - 0.2);
+    vec3 pos;
+    if (side < 0) {
+        vec2 xy = uv * 2. - 1.;
+        pos = spherizePoint(xy, pixel_coords.z);
+    }
+    else {
+        Lod lod = uLods[pixel_coords.z];
+
+        vec2 modUv = mod(uv - lod.origin, 1);
+
+        vec2 inner;
+        inner.x = mod(lod.oldOrigin.x - lod.origin.x, 1);
+        inner.y = mod(lod.oldOrigin.y - lod.origin.y, 1);
+        if (lod.oldOrigin == lod.origin) {
+        }
+        else if (lod.oldOrigin.x <= lod.origin.x && lod.oldOrigin.y <= lod.origin.y) {
+            if (inner.x == 0.0) inner.x = 1.0;
+            if (inner.y == 0.0) inner.y = 1.0;
+            if (modUv.x > inner.x && modUv.y > inner.y) {
+                //return;
+            }
+        }
+        else if (lod.oldOrigin.x <= lod.origin.x && lod.oldOrigin.y >= lod.origin.y) {
+            if (inner.x == 0.0) inner.x = 1.0;
+            if (inner.y == 0.0) inner.y = 0.0;
+            if (modUv.x > inner.x && modUv.y < inner.y) {
+                //return;
+            }
+        }
+        else if (lod.oldOrigin.x >= lod.origin.x && lod.oldOrigin.y <= lod.origin.y) {
+            if (inner.x == 0.0) inner.x = 0.0;
+            if (inner.y == 0.0) inner.y = 1.0;
+            if (modUv.x < inner.x && modUv.y > inner.y) {
+                //return;
+            }
+        }
+        else if (lod.oldOrigin.x >= lod.origin.x && lod.oldOrigin.y >= lod.origin.y) {
+            if (inner.x == 0.0) inner.x = 0.0;
+            if (inner.y == 0.0) inner.y = 0.0;
+            if (modUv.x < inner.x && modUv.y < inner.y) {
+                //return;
+            }
+        }
+
+        vec2 xy = mix(lod.region.xy, lod.region.zw, modUv);
+        pos = spherizePoint(xy, side);
+
+        pixel_coords.z = 6 + lod.idx - 1;
+    }
+
+    float height = ridgeWithOctaves(pos * 2.0, 20);
+    height = max(0, height - 1.0);
     vec4 pixel = vec4(height * 0.001, 0.0, 0.0, 1.0);
 
     // output to a specific pixel in the image

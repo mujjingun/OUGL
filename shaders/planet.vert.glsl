@@ -17,6 +17,7 @@ layout(location = 1) in vec2 offset;
 layout(location = 2) in float side;
 layout(location = 3) in float scale;
 layout(location = 4) in vec4 discardRegion;
+layout(location = 5) in vec2 modOrigin;
 
 layout(binding = 0) uniform sampler2DArray tex;
 
@@ -26,7 +27,8 @@ out vec3 vFx, vFy;
 out float vLogz;
 flat out float vScale;
 flat out vec4 vDiscardReg;
-flat out int vInstanceID;
+flat out int vTexIdx;
+flat out vec2 vModOrigin;
 
 vec3 applySide(vec3 cube, int side)
 {
@@ -80,8 +82,9 @@ void derivative(vec2 cube, int side, out vec3 dfdx, out vec3 dfdy)
 void main() {
     vUv = pos;
     vDiscardReg = discardRegion;
-    vInstanceID = 0;//gl_InstanceID;
+    vTexIdx = gl_InstanceID;
     vScale = scale;
+    vModOrigin = modOrigin;
 
     vec2 c = pos * scale + offset;
     vec3 position, normal;
@@ -119,8 +122,11 @@ void main() {
         normal = normalize(spherized);
     }
 
-    vec2 uv = (vUv + 1.0) * .5;
-    float height = texture(tex, vec3(uv, 0)).r;
+    float t = 0.001;
+    vec2 uv = (vUv + t) * (1.0 - t * 2);
+    uv = (uv + 1.0) * .5;
+    uv = mod(uv + vModOrigin, 1);
+    float height = texture(tex, vec3(uv, vTexIdx)).r;
     position += normal * height;
 
     gl_Position = viewProjMat * vec4(position, 1);
