@@ -149,7 +149,7 @@ std::int64_t Planet::distanceFromGround(glm::i64vec3 centeredCoords) const
 {
     double coreDistance = glm::length(glm::dvec3(centeredCoords));
     glm::dvec3 normCoords = glm::dvec3(centeredCoords) / coreDistance;
-    float height = terrainElevation(normCoords);
+    float height = terrainElevation(normCoords) * m_terrainFactor;
     double altitude = m_planetRadius * height;
     return coreDistance - altitude - m_planetRadius;
 }
@@ -183,6 +183,7 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     : m_scene(scene)
     , m_planetRadius(planetRadius)
     , m_position(position)
+    , m_terrainFactor(0.0005)
     , m_terrainTextures(GL_TEXTURE_2D_ARRAY)
 {
     std::vector<glm::vec2> gridPoints;
@@ -248,15 +249,16 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     m_terrainTextures.setWrapT(GL_CLAMP_TO_EDGE);
     m_terrainTextures.setMinFilter(GL_NEAREST);
     m_terrainTextures.setMagFilter(GL_LINEAR);
-    m_terrainTextures.allocateStoarge3D(1, GL_RGBA32F,
+    m_terrainTextures.allocateStoarge3D(1, GL_R32F,
         terrainTextureSize, terrainTextureSize, // width, height
         m_scene->params().terrainTextureCount); // array size
 
     // mode/side
     terrainShader().setUniform(0, -1);
+    terrainShader().setUniform(1, m_terrainFactor);
 
     terrainShader().use();
-    m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
     glDispatchCompute(terrainTextureSize / 32, terrainTextureSize / 32, 6);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
@@ -276,7 +278,7 @@ void Planet::render()
 
     glm::i64vec3 surfacePos = normPos * static_cast<double>(m_planetRadius);
     glm::i64vec3 surfaceOffset = centeredPos.pos - surfacePos;
-    glm::dvec3 surfaceOffsetInRadiusUnit = glm::dvec3(surfaceOffset) / static_cast<double>(m_planetRadius);
+    glm::dvec3 surfaceOffsetInRadiusUnits = glm::dvec3(surfaceOffset) / static_cast<double>(m_planetRadius);
 
     // set instance buffer data
     std::vector<InstanceAttrib> instanceBuffer;
@@ -320,8 +322,7 @@ void Planet::render()
             glm::vec2 oldOrigin;
             if (lod >= int(m_snapNums.size())) {
                 oldOrigin = modOrigin;
-            }
-            else {
+            } else {
                 oldOrigin = glm::mod(glm::dvec2(m_snapNums[lod]), snapSize) / snapSize;
             }
             //std::cout << to_string(oldOrigin - modOrigin) << std::endl;
@@ -355,7 +356,7 @@ void Planet::render()
 
         // write to texture
         terrainShader().use();
-        m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
         m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);
         glDispatchCompute(terrainTextureSize / 32, terrainTextureSize / 32, lodUpdates.size());
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -364,8 +365,8 @@ void Planet::render()
     m_instanceAttrBuf.setData(instanceBuffer, GL_STATIC_DRAW);
 
     // view matrix
-    glm::dmat4 viewMat = glm::lookAt(surfaceOffsetInRadiusUnit,
-        surfaceOffsetInRadiusUnit + m_scene->player().lookDirection(),
+    glm::dmat4 viewMat = glm::lookAt({},
+        m_scene->player().lookDirection(),
         m_scene->player().upDirection());
 
     // projection matrix
@@ -395,6 +396,9 @@ void Planet::render()
 
     // playerSide
     shader().setUniform(7, cubeCoords.side);
+
+    // eyePos
+    shader().setUniform(8, glm::vec3(surfaceOffsetInRadiusUnits));
 
     shader().use();
     m_vao.use();

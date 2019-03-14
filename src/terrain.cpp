@@ -115,5 +115,5 @@ float ou::terrainElevation(glm::vec3 const& pos)
 {
     float height = ridgeWithOctaves(pos * 2.0f, 20);
     float noise = glm::max(0.0, height - 1.0);
-    return noise * 0.001;
+    return noise;
 }

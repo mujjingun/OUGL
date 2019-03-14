@@ -23,6 +23,8 @@ class Planet
 
     VoxelCoords m_position;
 
+    float m_terrainFactor;
+
     VertexArray m_vao;
 
     VertexBuffer m_gridBuf, m_instanceAttrBuf;
