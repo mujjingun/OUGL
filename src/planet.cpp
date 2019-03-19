@@ -303,12 +303,13 @@ void Planet::render()
     double distance = distanceFromGround(centeredPos.pos);
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
-    int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+    int levelsOfDetail = glm::clamp(-2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
     struct LodUpdateData {
         glm::vec2 oldOrigin;
         int idx;
+        int unused = 0;
     };
     std::vector<LodUpdateData> lodUpdates;
     for (int lod = 1; lod < levelsOfDetail; ++lod) {
@@ -332,7 +333,6 @@ void Planet::render()
                 oldOrigin = glm::mod(glm::dvec2(m_snapNums[lod]), snapSize) / snapSize;
             }
 
-            std::cout << lod << " " <<m_snapNums[lod].x << " " << snapNums.x << std::endl;
             m_lodData[5 + lod] = { region, modOrigin, 5 + lod };
             lodUpdates.push_back({ oldOrigin, 5 + lod });
         }

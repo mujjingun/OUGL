@@ -38,7 +38,7 @@ void Player::render()
         glm::i64vec3 diff = (m_position - nearest->position()).pos;
         std::int64_t altitude = nearest->distanceFromGround(diff);
         //std::cout << altitude << "mm" << std::endl;
-        speed = altitude;
+        speed = altitude * 3;
     }
 
     double moveAmount = m_scene->deltaTime() * speed;
