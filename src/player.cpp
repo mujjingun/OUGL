@@ -33,11 +33,12 @@ void Player::render()
     glm::dvec3 right = glm::cross(m_upDirection, m_lookDirection);
 
     double speed = 30000000000 * 1000.0; // mm/s
-    if (Planet const* nearest = nearestPlanet()) {
-        VoxelCoords diff = m_position - nearest->position();
-        std::int64_t altitude = nearest->distanceFromGround(diff.pos);
-        //std::cout << altitude / 1000 << "m" << std::endl;
-        speed = altitude * 3;
+    Planet const* nearest = nearestPlanet();
+    if (nearest) {
+        glm::i64vec3 diff = (m_position - nearest->position()).pos;
+        std::int64_t altitude = nearest->distanceFromGround(diff);
+        //std::cout << altitude << "mm" << std::endl;
+        speed = altitude;
     }
 
     double moveAmount = m_scene->deltaTime() * speed;
@@ -59,6 +60,16 @@ void Player::render()
     }
     if (m_scene->isKeyPressed('s')) {
         m_position = m_position - VoxelCoords{ {}, m_lookDirection * moveAmount };
+    }
+
+    if (nearest) {
+        glm::i64vec3 diff = (m_position - nearest->position()).pos;
+        double altitude = nearest->distanceFromGround(diff);
+        const int playerHeight = m_scene->params().playerHeight;
+        if (altitude < playerHeight) {
+            glm::i64vec3 delta = glm::normalize(glm::dvec3(diff)) * (altitude - playerHeight);
+            m_position = m_position - VoxelCoords{ {}, delta };
+        }
     }
 
     glm::dvec2 angle = glm::dvec2(m_scene->mouseDelta()) * glm::radians(m_scene->params().anglePerPixel);

@@ -14,6 +14,7 @@ struct Parameters {
     double anglePerPixel;
     int terrainTextureSize;
     int terrainTextureCount;
+    int playerHeight;
 };
 }
 

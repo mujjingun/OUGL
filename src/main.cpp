@@ -109,7 +109,7 @@ public:
         }
 
         if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
-            std::clog << "OpenGL Message: " << message
+            std::cout << "OpenGL Message: " << message
                       << " type=" << type_str
                       << " severity=" << sev_str
                       << "\n";

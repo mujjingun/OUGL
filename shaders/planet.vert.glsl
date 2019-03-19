@@ -8,6 +8,7 @@ layout(location = 4) uniform vec3 xxCurv;
 layout(location = 5) uniform vec3 xyCurv;
 layout(location = 6) uniform vec3 yyCurv;
 layout(location = 7) uniform int playerSide;
+layout(location = 8) uniform vec3 eyeOffset;
 
 // per-vertex attributes
 layout(location = 0) in vec2 pos;
@@ -23,6 +24,7 @@ layout(binding = 0) uniform sampler2DArray tex;
 
 out vec2 vUv;
 out vec2 vCube;
+out vec3 vPosition;
 out vec3 vFx, vFy;
 out float vLogz;
 flat out float vScale;
@@ -87,7 +89,7 @@ void main() {
     vModOrigin = modOrigin;
 
     vec2 c = pos * scale + offset;
-    vec3 position, normal;
+    vec3 normal;
     if (playerSide == int(side)) {
         vCube = c + origin;
 
@@ -96,7 +98,7 @@ void main() {
         vec3 vApprox = c.x * xJac + c.y * yJac + .5 * (c.x * c.x * xxCurv + 2. * c.x * c.y * xyCurv + c.y * c.y * yyCurv);
         float mixFactor = smoothstep(0.0, 0.1, length(c));
 
-        position = mix(vApprox, vBroad, mixFactor);
+        vPosition = mix(vApprox, vBroad, mixFactor);
 
         vec3 fxApprox = xJac + xxCurv * c.x + xyCurv * c.y;
         vec3 fyApprox = yJac + xyCurv * c.x + yyCurv * c.y;
@@ -113,7 +115,7 @@ void main() {
         vec3 spherized = spherizePoint(vCube, int(side));
         vec3 vBroad = spherized - spherizePoint(origin, playerSide);
 
-        position = vBroad;
+        vPosition = vBroad;
 
         vec3 fxBroad, fyBroad; derivative(vCube, int(side), fxBroad, fyBroad);
         vFx = fxBroad;
@@ -122,14 +124,15 @@ void main() {
         normal = normalize(spherized);
     }
 
-    float t = 0.001;
+    float t = 1 / float(textureSize(tex, 0).x);
     vec2 uv = (vUv + t) * (1.0 - t * 2);
     uv = (uv + 1.0) * .5;
     uv = mod(uv + vModOrigin, 1);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
-    position += normal * height;
+    vPosition -= eyeOffset;
+    vPosition += normal * height;
 
-    gl_Position = viewProjMat * vec4(position, 1);
+    gl_Position = viewProjMat * vec4(vPosition, 1);
 
     // logarithmic depth
     const float C = 1;

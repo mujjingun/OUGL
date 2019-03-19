@@ -2,6 +2,7 @@
 
 in vec2 vUv;
 in vec2 vCube;
+in vec3 vPosition;
 in vec3 vFx, vFy;
 in float vLogz;
 flat in float vScale;
@@ -43,17 +44,25 @@ void main() {
 
     gl_FragDepth = vLogz;
 
-    float t = 0.001;
+    float t = 1 / float(textureSize(tex, 0).x);
     vec2 uv = (vUv + t) * (1.0 - t * 2);
     uv = (uv + 1.0) * .5;
     uv = mod(uv + vModOrigin, 1);
     vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
     float height = mapValue.r;
 
-    color = mix(vec3(0.1, 0.8, 0.1), vec3(0.0, 0.0, 0.7), step(height, 0.0));
+    color = mix(vec3(0.1, 0.8, 0.0), vec3(0.0, 0.0, 0.7), step(height, 0.0));
 
-    vec3 lightDir = vec3(0, 0, 1);
+    vec3 lightDir = normalize(vec3(-1, 0, 1));
     vec3 normal = getNormal(uv, vScale);
 
-    color *= max(dot(normal, lightDir) * 1.0, 0.001);
+    float light = max(dot(normal, lightDir) * 1.0, 0.001);
+    vec3 lightReflect = normalize(reflect(lightDir, normal));
+    vec3 vertexToEye = normalize(vPosition);
+    float specularFactor = dot(vertexToEye, lightReflect);
+    specularFactor = pow(max(0, specularFactor), 32);
+    specularFactor = mix(specularFactor * 0.1, specularFactor, step(height, 0.0));
+    light += specularFactor;
+
+    color *= light;
 }

@@ -30,7 +30,7 @@ class Planet
     VertexBuffer m_gridBuf, m_instanceAttrBuf;
 
     Texture m_terrainTextures;
-    VertexBuffer m_lodUboBuf;
+    VertexBuffer m_lodUboBuf, m_lodUpdUboBuf;
 
     Shader& shader();
     Shader& terrainShader();
@@ -38,6 +38,14 @@ class Planet
     std::size_t m_vertexCount;
 
     std::vector<glm::i64vec2> m_snapNums;
+
+    struct LodData {
+        glm::vec4 region;
+        glm::vec2 origin;
+        int imgidx;
+        int unused = 0;
+    };
+    std::vector<LodData> m_lodData;
 
 public:
     Planet(Scene const* scene);

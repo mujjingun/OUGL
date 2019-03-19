@@ -2,24 +2,35 @@
 #define WORKGROUP_SIZE 32
 #define MAX_LODS 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-layout(rgba32f, binding = 0) uniform image2DArray image;
+layout(r32f, binding = 0) uniform image2DArray image;
 
 struct Lod
 {
     vec4 region;
     vec2 origin;
+    int imgIdx;
+};
+
+layout(std140, binding = 1) uniform LodData
+{
+    Lod uLods[MAX_LODS];
+};
+
+struct Update
+{
     vec2 oldOrigin;
     int idx;
 };
 
-layout(std140, binding = 1) uniform UpdateData
+layout(std140, binding = 2) uniform UpdateData
 {
-    Lod uLods[MAX_LODS];
+    Update uUpdates[MAX_LODS];
 };
 
 // side == -1: z = side
 // side >= 0: z = lod
 layout(location = 0) uniform int side;
+layout(location = 1) uniform float terrainFactor;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 
@@ -174,37 +185,40 @@ void main() {
         pos = spherizePoint(xy, pixel_coords.z);
     }
     else {
-        Lod lod = uLods[pixel_coords.z];
+        Update update = uUpdates[pixel_coords.z];
+        Lod lod = uLods[update.idx];
 
-        vec2 modUv = mod(uv - lod.origin, 1);
+        vec2 oldOrigin = update.oldOrigin;
+        vec2 origin = lod.origin;
 
+        vec2 modUv = mod(uv - origin, 1);
         vec2 inner;
-        inner.x = mod(lod.oldOrigin.x - lod.origin.x, 1);
-        inner.y = mod(lod.oldOrigin.y - lod.origin.y, 1);
-        if (lod.oldOrigin == lod.origin) {
+        inner.x = mod(oldOrigin.x - origin.x, 1);
+        inner.y = mod(oldOrigin.y - origin.y, 1);
+        if (oldOrigin == origin) {
         }
-        else if (lod.oldOrigin.x <= lod.origin.x && lod.oldOrigin.y <= lod.origin.y) {
+        else if (oldOrigin.x <= origin.x && oldOrigin.y <= origin.y) {
             if (inner.x == 0.0) inner.x = 1.0;
             if (inner.y == 0.0) inner.y = 1.0;
             if (modUv.x > inner.x && modUv.y > inner.y) {
                 //return;
             }
         }
-        else if (lod.oldOrigin.x <= lod.origin.x && lod.oldOrigin.y >= lod.origin.y) {
+        else if (oldOrigin.x <= origin.x && oldOrigin.y >= origin.y) {
             if (inner.x == 0.0) inner.x = 1.0;
             if (inner.y == 0.0) inner.y = 0.0;
             if (modUv.x > inner.x && modUv.y < inner.y) {
                 //return;
             }
         }
-        else if (lod.oldOrigin.x >= lod.origin.x && lod.oldOrigin.y <= lod.origin.y) {
+        else if (oldOrigin.x >= origin.x && oldOrigin.y <= origin.y) {
             if (inner.x == 0.0) inner.x = 0.0;
             if (inner.y == 0.0) inner.y = 1.0;
             if (modUv.x < inner.x && modUv.y > inner.y) {
                 //return;
             }
         }
-        else if (lod.oldOrigin.x >= lod.origin.x && lod.oldOrigin.y >= lod.origin.y) {
+        else if (oldOrigin.x >= origin.x && oldOrigin.y >= origin.y) {
             if (inner.x == 0.0) inner.x = 0.0;
             if (inner.y == 0.0) inner.y = 0.0;
             if (modUv.x < inner.x && modUv.y < inner.y) {
@@ -215,12 +229,12 @@ void main() {
         vec2 xy = mix(lod.region.xy, lod.region.zw, modUv);
         pos = spherizePoint(xy, side);
 
-        pixel_coords.z = 6 + lod.idx - 1;
+        pixel_coords.z = lod.imgIdx;
     }
 
     float height = ridgeWithOctaves(pos * 2.0, 20);
     height = max(0, height - 1.0);
-    vec4 pixel = vec4(height * 0.001, 0.0, 0.0, 1.0);
+    vec4 pixel = vec4(height * terrainFactor, 0.0, 0.0, 1.0);
 
     // output to a specific pixel in the image
     imageStore(image, pixel_coords, pixel);
