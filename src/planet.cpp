@@ -6,6 +6,7 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
+
 #include <iostream>
 
 #include "parameters.h"
@@ -303,7 +304,7 @@ void Planet::render()
     double distance = distanceFromGround(centeredPos.pos);
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
-    int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+    int levelsOfDetail = glm::clamp(-2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
     struct LodUpdateData {
@@ -322,7 +323,7 @@ void Planet::render()
         double cellSize = 1 / snapSize;
         double mod = scale * 2. * cellSize;
 
-        glm::i64vec2 snapNums = glm::floor(cubeCoords.pos / mod);
+        glm::i64vec2 snapNums = glm::round(cubeCoords.pos / mod);
         currentSnapNums.push_back(snapNums);
 
         glm::vec2 modOrigin = glm::mod(glm::dvec2(snapNums), snapSize) / snapSize;
