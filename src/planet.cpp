@@ -264,12 +264,12 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // set lod data
-    m_lodData[0] = { { -.5, -.5, .5, .5 }, { 0, 0 }, 0 };
-    m_lodData[1] = { { -.5, -.5, .5, .5 }, { 0, 0 }, 1 };
-    m_lodData[2] = { { -.5, -.5, .5, .5 }, { 0, 0 }, 2 };
-    m_lodData[3] = { { -.5, -.5, .5, .5 }, { 0, 0 }, 3 };
-    m_lodData[4] = { { -.5, -.5, .5, .5 }, { 0, 0 }, 4 };
-    m_lodData[5] = { { -.5, -.5, .5, .5 }, { 0, 0 }, 5 };
+    m_lodData[0] = { { 0, 0 }, { 0, 0 }, 1.0f, 0, -1 };
+    m_lodData[1] = { { 0, 0 }, { 0, 0 }, 1.0f, 1, -1 };
+    m_lodData[2] = { { 0, 0 }, { 0, 0 }, 1.0f, 2, -1 };
+    m_lodData[3] = { { 0, 0 }, { 0, 0 }, 1.0f, 3, -1 };
+    m_lodData[4] = { { 0, 0 }, { 0, 0 }, 1.0f, 4, -1 };
+    m_lodData[5] = { { 0, 0 }, { 0, 0 }, 1.0f, 5, -1 };
 }
 
 void Planet::render()
@@ -303,14 +303,17 @@ void Planet::render()
     double distance = distanceFromGround(centeredPos.pos);
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
-    int levelsOfDetail = glm::clamp(-2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+    int levelsOfDetail = glm::clamp(2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
     struct LodUpdateData {
+        glm::vec2 oldCenter;
         glm::vec2 oldOrigin;
         int idx;
-        int unused = 0;
+        int unused[3]{};
     };
+    static_assert(sizeof(LodUpdateData) % 16 == 0, "ubo struct is not aligned to 16 bytes");
+
     std::vector<LodUpdateData> lodUpdates;
     for (int lod = 1; lod < levelsOfDetail; ++lod) {
         float side = cubeCoords.side;
@@ -324,17 +327,32 @@ void Planet::render()
 
         glm::vec2 modOrigin = glm::mod(glm::dvec2(snapNums), snapSize) / snapSize;
         if (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums) {
-            glm::dvec2 center = glm::dvec2(snapNums) * mod;
-            glm::vec4 region = { center.x - scale, center.y - scale, center.x + scale, center.y + scale };
-            glm::vec2 oldOrigin;
+            glm::vec2 center = glm::dvec2(snapNums) * mod;
+            glm::vec2 oldCenter, oldOrigin;
             if (lod >= int(m_snapNums.size())) {
+                oldCenter = center;
                 oldOrigin = modOrigin;
             } else {
+                oldCenter = glm::dvec2(m_snapNums[lod]) * mod;
                 oldOrigin = glm::mod(glm::dvec2(m_snapNums[lod]), snapSize) / snapSize;
             }
 
-            m_lodData[5 + lod] = { region, modOrigin, 5 + lod };
-            lodUpdates.push_back({ oldOrigin, 5 + lod });
+            int index = 5 + lod;
+            int parentIdx = lod == 1 ? cubeCoords.side : index - 1;
+
+            LodData lodData;
+            lodData.center = center;
+            lodData.origin = modOrigin;
+            lodData.scale = static_cast<float>(scale);
+            lodData.imgIdx = index;
+            lodData.parentIdx = parentIdx;
+            m_lodData[index] = lodData;
+
+            LodUpdateData updateData;
+            updateData.oldCenter = oldCenter;
+            updateData.oldOrigin = oldOrigin;
+            updateData.idx = index;
+            lodUpdates.push_back(updateData);
         }
 
         if (lod == 1) {
@@ -363,7 +381,7 @@ void Planet::render()
 
         // write to texture
         terrainShader().use();
-        m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
+        m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32F);
         m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);
         m_lodUpdUboBuf.use(GL_UNIFORM_BUFFER, 2);
 

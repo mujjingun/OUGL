@@ -40,11 +40,14 @@ class Planet
     std::vector<glm::i64vec2> m_snapNums;
 
     struct LodData {
-        glm::vec4 region;
+        glm::vec2 center;
         glm::vec2 origin;
-        int imgidx;
-        int unused = 0;
+        float scale;
+        int imgIdx;
+        int parentIdx;
+        int unused[1]{};
     };
+    static_assert(sizeof(LodData) % 16 == 0, "ubo struct is not aligned to 16 bytes");
     std::vector<LodData> m_lodData;
 
 public:

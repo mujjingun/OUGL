@@ -6,9 +6,11 @@ layout(r32f, binding = 0) uniform image2DArray image;
 
 struct Lod
 {
-    vec4 region;
+    vec2 center;
     vec2 origin;
+    float scale;
     int imgIdx;
+    int parentIdx;
 };
 
 layout(std140, binding = 1) uniform LodData
@@ -18,6 +20,7 @@ layout(std140, binding = 1) uniform LodData
 
 struct Update
 {
+    vec2 oldCenter;
     vec2 oldOrigin;
     int idx;
 };
@@ -177,7 +180,8 @@ vec3 spherizePoint(vec2 q, int side)
 
 void main() {
     ivec3 pixel_coords = ivec3(gl_GlobalInvocationID.xyz);
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(imageSize(image).xy);
+    vec2 imgSize = vec2(imageSize(image).xy);
+    vec2 uv = vec2(gl_GlobalInvocationID.xy) / imgSize;
 
     if (side < 0) {
         vec2 xy = uv * 2. - 1.;
@@ -194,50 +198,55 @@ void main() {
         Update update = uUpdates[pixel_coords.z];
         Lod lod = uLods[update.idx];
 
-        vec2 oldOrigin = update.oldOrigin;
-        vec2 origin = lod.origin;
+        vec2 modUv = mod(uv - lod.origin, 1);
+        vec2 inner = mod(update.oldOrigin - lod.origin, 1);
 
-        vec2 modUv = mod(uv - origin, 1);
-        vec2 inner = mod(oldOrigin - origin, 1);
-        if (oldOrigin == origin) {
+        vec4 pixel = vec4(0);
+        if (update.oldCenter == lod.center.xy) {
         }
-        else if (oldOrigin.x <= origin.x && oldOrigin.y <= origin.y) {
+        else if (update.oldCenter.x <= lod.center.x && update.oldCenter.y <= lod.center.y) {
             if (inner.x == 0.0) inner.x = 1.0;
             if (inner.y == 0.0) inner.y = 1.0;
-            if (modUv.x > inner.x && modUv.y > inner.y) {
-                return;
-            }
-        }
-        else if (oldOrigin.x <= origin.x && oldOrigin.y >= origin.y) {
-            if (inner.x == 0.0) inner.x = 1.0;
-            if (inner.y == 0.0) inner.y = 0.0;
-            if (modUv.x > inner.x && modUv.y < inner.y) {
-                return;
-            }
-        }
-        else if (oldOrigin.x >= origin.x && oldOrigin.y <= origin.y) {
-            if (inner.x == 0.0) inner.x = 0.0;
-            if (inner.y == 0.0) inner.y = 1.0;
-            if (modUv.x < inner.x && modUv.y > inner.y) {
-                return;
-            }
-        }
-        else if (oldOrigin.x >= origin.x && oldOrigin.y >= origin.y) {
-            if (inner.x == 0.0) inner.x = 0.0;
-            if (inner.y == 0.0) inner.y = 0.0;
             if (modUv.x < inner.x && modUv.y < inner.y) {
                 return;
             }
         }
+        else if (update.oldCenter.x <= lod.center.x && update.oldCenter.y >= lod.center.y) {
+            if (inner.x == 0.0) inner.x = 1.0;
+            if (inner.y == 0.0) inner.y = 0.0;
+            if (modUv.x < inner.x && modUv.y > inner.y) {
+                return;
+            }
+        }
+        else if (update.oldCenter.x >= lod.center.x && update.oldCenter.y <= lod.center.y) {
+            if (inner.x == 0.0) inner.x = 0.0;
+            if (inner.y == 0.0) inner.y = 1.0;
+            if (modUv.x > inner.x && modUv.y < inner.y) {
+                return;
+            }
+        }
+        else if (update.oldCenter.x >= lod.center.x && update.oldCenter.y >= lod.center.y) {
+            if (inner.x == 0.0) inner.x = 0.0;
+            if (inner.y == 0.0) inner.y = 0.0;
+            if (modUv.x > inner.x && modUv.y > inner.y) {
+                return;
+            }
+        }
 
-        vec2 xy = mix(lod.region.xy, lod.region.zw, modUv);
+        vec2 xy = (modUv * 2 - 1) * lod.scale + lod.center;
         vec3 pos = spherizePoint(xy, side);
 
         pixel_coords.z = lod.imgIdx;
 
         float height = ridgeWithOctaves(pos * 2.0, 20);
         height = max(0, height - 1.0);
-        vec4 pixel = vec4(height * terrainFactor, 0.0, 0.0, 1.0);
+        pixel = vec4(height * terrainFactor, 0.0, 0.0, 1.0);
+
+        // upsample parent
+        Lod parent_lod = uLods[lod.parentIdx];
+        vec2 parent_modUv = uv / 2 + (lod.center - parent_lod.center) / parent_lod.scale - parent_lod.origin;
+        ivec3 parent_pixel_coords = ivec3(ivec2(parent_modUv * imgSize), parent_lod.imgIdx);
+        //pixel = imageLoad(image, parent_pixel_coords);
 
         // output to a specific pixel in the image
         imageStore(image, pixel_coords, pixel);
