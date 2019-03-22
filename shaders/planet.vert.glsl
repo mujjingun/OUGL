@@ -9,6 +9,7 @@ layout(location = 5) uniform vec3 xyCurv;
 layout(location = 6) uniform vec3 yyCurv;
 layout(location = 7) uniform int playerSide;
 layout(location = 8) uniform vec3 eyeOffset;
+layout(location = 9) uniform float terrainFactor;
 
 // per-vertex attributes
 layout(location = 0) in vec2 pos;
@@ -127,8 +128,9 @@ void main() {
     float t = 1 / float(textureSize(tex, 0).x);
     vec2 uv = (vUv + t) * (1.0 - t * 2);
     uv = (uv + 1.0) * .5;
-    uv = mod(uv + vModOrigin, 1);
+    uv = fract(uv + vModOrigin);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
+    height = max(0, height - 1.0) * terrainFactor;
     vPosition -= eyeOffset;
     vPosition += normal * height;
 

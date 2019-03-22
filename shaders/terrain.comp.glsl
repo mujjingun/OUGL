@@ -3,6 +3,7 @@
 #define MAX_LODS 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 layout(r32f, binding = 0) uniform image2DArray image;
+layout(binding = 1) uniform sampler2DArray tex;
 
 struct Lod
 {
@@ -33,7 +34,6 @@ layout(std140, binding = 2) uniform UpdateData
 // side == -1: z = side
 // side >= 0: z = lod
 layout(location = 0) uniform int side;
-layout(location = 1) uniform float terrainFactor;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 
@@ -223,8 +223,7 @@ void main() {
         vec3 pos = spherizePoint(xy, pixel_coords.z);
 
         float height = ridgeWithOctaves(pos * 2.0, 15);
-        height = max(0, height - 1.0);
-        vec4 pixel = vec4(height * terrainFactor, 0.0, 0.0, 1.0);
+        vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
 
         // output to a specific pixel in the image
         imageStore(image, pixel_coords, pixel);
@@ -233,7 +232,7 @@ void main() {
         Update update = uUpdates[pixel_coords.z];
         Lod lod = uLods[update.idx];
 
-        vec2 modUv = mod(uv - lod.origin, 1);
+        vec2 modUv = fract(uv - lod.origin);
 
         // skip duplicate region
         if (skip(update, lod, modUv)) {
@@ -244,16 +243,14 @@ void main() {
         vec2 xy = (modUv * 2 - 1) * lod.scale + lod.center;
         vec3 pos = spherizePoint(xy, side);
         float height = ridgeWithOctaves(pos * 2.0, 20);
-        height = max(0, height - 1.0);
-        vec4 pixel = vec4(height * terrainFactor, 0.0, 0.0, 1.0);
+        vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
 
         // upsample parent
         Lod plod = uLods[lod.parentIdx];
         vec2 pOffset = ((lod.center - plod.center) / lod.scale + 1) / 4;
         vec2 pUv = modUv / 2 + pOffset + plod.origin;
-        vec2 pmodUv = mod(pUv, 1);
-        ivec2 pPixelUv = ivec2(pmodUv * imgSize);
-        pixel = imageLoad(image, ivec3(pPixelUv, plod.imgIdx));
+        vec2 pmodUv = fract(pUv);
+        //pixel = texture(tex, vec3(pmodUv, plod.imgIdx));
 
         // output to a specific pixel in the image
         pixel_coords.z = lod.imgIdx;

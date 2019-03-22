@@ -12,16 +12,21 @@ flat in vec2 vModOrigin;
 
 layout(binding = 0) uniform sampler2DArray tex;
 
+layout(location = 9) uniform float terrainFactor;
+
 out vec3 color;
 
 vec2 getGradient(vec2 uv, float span) {
-    const float h01 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(-1, 0)).x;
-    const float h21 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(1, 0)).x;
-    const float h10 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, -1)).x;
-    const float h12 = textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, 1)).x;
+    vec4 h = vec4(
+        textureOffset(tex, vec3(uv, vTexIdx), ivec2(-1, 0)).x,
+        textureOffset(tex, vec3(uv, vTexIdx), ivec2(1, 0)).x,
+        textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, -1)).x,
+        textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, 1)).x
+    );
+    h = max(vec4(0), h - 1.0) * terrainFactor;
 
     const ivec3 size = textureSize(tex, 0);
-    return vec2(h21 - h01, h12 - h10) * size.xy / span;
+    return vec2(h.y - h.x, h.w - h.z) * size.xy / span;
 }
 
 vec3 getNormal(vec2 uv, float span) {
@@ -47,9 +52,10 @@ void main() {
     float t = 1 / float(textureSize(tex, 0).x);
     vec2 uv = (vUv + t) * (1.0 - t * 2);
     uv = (uv + 1.0) * .5;
-    uv = mod(uv + vModOrigin, 1);
+    uv = fract(uv + vModOrigin);
     vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
     float height = mapValue.r;
+    height = max(0, height - 1.0) * terrainFactor;
 
     color = mix(vec3(0.1, 0.8, 0.0), vec3(0.0, 0.0, 0.7), step(height, 0.0));
 

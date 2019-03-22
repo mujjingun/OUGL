@@ -257,7 +257,6 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
 
     // mode/side
     terrainShader().setUniform(0, -1);
-    terrainShader().setUniform(1, m_terrainFactor);
 
     terrainShader().use();
     m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
@@ -382,7 +381,8 @@ void Planet::render()
 
         // write to texture
         terrainShader().use();
-        m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32F);
+        m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
+        m_terrainTextures.use(1);
         m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);
         m_lodUpdUboBuf.use(GL_UNIFORM_BUFFER, 2);
 
@@ -428,6 +428,9 @@ void Planet::render()
 
     // eyePos
     shader().setUniform(8, glm::vec3(surfaceOffsetInRadiusUnits));
+
+    // terrainFactor
+    shader().setUniform(9, m_terrainFactor);
 
     shader().use();
     m_vao.use();
