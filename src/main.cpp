@@ -7,7 +7,7 @@
 
 #include "scene.h"
 
-std::unique_ptr<ou::Scene> scene;
+static std::unique_ptr<ou::Scene> scene;
 
 namespace ou {
 
@@ -109,10 +109,10 @@ public:
         }
 
         if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
-            std::cout << "OpenGL Message: " << message
-                      << " type=" << type_str
-                      << " severity=" << sev_str
-                      << "\n";
+            //std::cout << "OpenGL Message: " << message
+            //          << " type=" << type_str
+            //          << " severity=" << sev_str
+            //          << "\n";
 
         }
         else {

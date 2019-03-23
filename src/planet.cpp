@@ -151,7 +151,7 @@ std::int64_t Planet::distanceFromGround(glm::i64vec3 centeredCoords) const
     double coreDistance = glm::length(glm::dvec3(centeredCoords));
     glm::dvec3 normCoords = glm::dvec3(centeredCoords) / coreDistance;
     double height = terrainElevation(normCoords) * m_terrainFactor;
-    double altitude = m_planetRadius * height;
+    double altitude = 0;//m_planetRadius * height;
     return coreDistance - altitude - m_planetRadius;
 }
 
@@ -186,7 +186,7 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     , m_position(position)
     , m_terrainFactor(0.0005f)
     , m_terrainTextures(GL_TEXTURE_2D_ARRAY)
-    , m_lodData(6 + scene->params().maxLods)
+    , m_lodData(m_scene->params().terrainTextureCount)
 {
     std::vector<glm::vec2> gridPoints;
     for (float col = 0; col < scene->params().gridSize; ++col) {
@@ -247,9 +247,9 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
 
     // Make terrain heightmap textures
     const int terrainTextureSize = m_scene->params().terrainTextureSize;
-    m_terrainTextures.setWrapS(GL_CLAMP_TO_EDGE);
-    m_terrainTextures.setWrapT(GL_CLAMP_TO_EDGE);
-    m_terrainTextures.setMinFilter(GL_NEAREST);
+    m_terrainTextures.setWrapS(GL_CLAMP_TO_BORDER);
+    m_terrainTextures.setWrapT(GL_CLAMP_TO_BORDER);
+    m_terrainTextures.setMinFilter(GL_LINEAR);
     m_terrainTextures.setMagFilter(GL_LINEAR);
     m_terrainTextures.allocateStoarge3D(1, GL_R32F,
         terrainTextureSize, terrainTextureSize, // width, height
@@ -303,7 +303,8 @@ void Planet::render()
     double distance = distanceFromGround(centeredPos.pos);
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
-    int levelsOfDetail = glm::clamp(-2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods);
+    const int levelsOfDetail = glm::clamp(
+        -2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods - 1);
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
     struct LodUpdateData {
@@ -314,19 +315,22 @@ void Planet::render()
     };
     static_assert(sizeof(LodUpdateData) % 16 == 0, "ubo struct is not aligned to 16 bytes");
 
-    std::vector<LodUpdateData> lodUpdates;
+    const double snapSize = m_scene->params().snapSize;
+    const double cellSize = 1 / snapSize;
+
+    bool doUpdateLod = false;
+    LodUpdateData lodUpdateInfo;
+
     for (int lod = 1; lod < levelsOfDetail; ++lod) {
-        float side = cubeCoords.side;
-        double scale = glm::pow(.5, lod);
-        double snapSize = m_scene->params().snapSize;
-        double cellSize = 1 / snapSize;
+        double scale = glm::exp2(-lod);
         double mod = scale * 2. * cellSize;
 
         glm::i64vec2 snapNums = glm::round(cubeCoords.pos / mod);
-        currentSnapNums.push_back(snapNums);
+        bool updateNow = !doUpdateLod && (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums);
 
-        glm::vec2 modOrigin = glm::mod(glm::dvec2(snapNums), snapSize) / snapSize;
-        if (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums) {
+        if (updateNow) {
+            // generate update info
+            glm::vec2 modOrigin = glm::fract(glm::dvec2(snapNums) / snapSize);
             glm::vec2 center = glm::dvec2(snapNums) * mod;
             glm::vec2 oldCenter, oldOrigin;
             if (lod >= int(m_snapNums.size())) {
@@ -348,11 +352,24 @@ void Planet::render()
             lodData.parentIdx = parentIdx;
             m_lodData[index] = lodData;
 
-            LodUpdateData updateData;
-            updateData.oldCenter = oldCenter;
-            updateData.oldOrigin = oldOrigin;
-            updateData.idx = index;
-            lodUpdates.push_back(updateData);
+            lodUpdateInfo.oldCenter = oldCenter;
+            lodUpdateInfo.oldOrigin = oldOrigin;
+            lodUpdateInfo.idx = index;
+
+            doUpdateLod = true;
+
+            std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << std::endl;
+        } else {
+            if (lod >= int(m_snapNums.size())) {
+                std::cout << "delayed lod creation " << lod << std::endl;
+                break;
+            }
+            if (m_snapNums[lod] != snapNums) {
+                std::cout << "delayed update " << lod << std::endl;
+            }
+
+            // parent map pending update, update later
+            snapNums = m_snapNums[lod];
         }
 
         if (lod == 1) {
@@ -362,22 +379,36 @@ void Planet::render()
             };
         }
         if (lod > 1) {
-            glm::ivec2 r = snapNums - currentSnapNums[lod - 1] * std::int64_t(2);
+            glm::ivec2 r = snapNums - currentSnapNums.back() * std::int64_t(2);
             instanceBuffer.back().discardRegion = {
                 -.5 + r.x * cellSize, -.5 + r.y * cellSize, .5 + r.x * cellSize, .5 + r.y * cellSize
             };
         }
 
-        glm::vec2 offset = cubeCoords.pos - mod * glm::dvec2(snapNums);
-        instanceBuffer.push_back({ -offset, side, static_cast<float>(scale), {}, modOrigin });
+        glm::vec2 offset = mod * glm::dvec2(snapNums) - cubeCoords.pos;
+        glm::vec2 modOrigin = glm::fract(glm::dvec2(snapNums) / snapSize);
+
+        InstanceAttrib attrib;
+        attrib.offset = offset;
+        attrib.side = cubeCoords.side;
+        attrib.scale = static_cast<float>(scale);
+        attrib.discardRegion = {};
+        attrib.modOrigin = modOrigin;
+        instanceBuffer.push_back(attrib);
+
+        currentSnapNums.push_back(snapNums);
     }
     m_snapNums = currentSnapNums;
 
     // update terrain textures
-    if (!lodUpdates.empty()) {
+    if (doUpdateLod) {
         m_lodUboBuf.setData(m_lodData, GL_DYNAMIC_DRAW);
-        m_lodUpdUboBuf.setData(lodUpdates, GL_DYNAMIC_DRAW);
+        m_lodUpdUboBuf.setData(RawBufferView(lodUpdateInfo), GL_DYNAMIC_DRAW);
         terrainShader().setUniform(0, cubeCoords.side);
+
+        auto derivs = derivatives(m_lodData[lodUpdateInfo.idx].origin, cubeCoords.side);
+        terrainShader().setUniform(1, glm::vec3(derivs.fx));
+        terrainShader().setUniform(2, glm::vec3(derivs.fy));
 
         // write to texture
         terrainShader().use();
@@ -387,8 +418,8 @@ void Planet::render()
         m_lodUpdUboBuf.use(GL_UNIFORM_BUFFER, 2);
 
         const int numWorkGroups = m_scene->params().terrainTextureSize / 32;
-        glDispatchCompute(numWorkGroups, numWorkGroups, lodUpdates.size());
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glDispatchCompute(numWorkGroups, numWorkGroups, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
     }
 
     m_instanceAttrBuf.setData(instanceBuffer, GL_STATIC_DRAW);

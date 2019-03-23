@@ -113,7 +113,7 @@ static float ridgeWithOctaves(vec3 const& v, int n)
 
 float ou::terrainElevation(glm::vec3 const& pos)
 {
-    float height = ridgeWithOctaves(pos * 2.0f, 20);
-    float noise = glm::max(0.0, height - 1.0);
+    float height = ridgeWithOctaves(pos * 2.0f, 20) - 1.0f;
+    float noise = glm::max(0.0f, height);
     return noise;
 }

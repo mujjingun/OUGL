@@ -125,14 +125,14 @@ void main() {
         normal = normalize(spherized);
     }
 
-    float t = 1 / float(textureSize(tex, 0).x);
-    vec2 uv = (vUv + t) * (1.0 - t * 2);
-    uv = (uv + 1.0) * .5;
+    vec2 t = 1 / vec2(textureSize(tex, 0));
+    vec2 uv = (vUv + 1.0) * .5;
+    uv = mix(t, 1 - t, uv);
     uv = fract(uv + vModOrigin);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
-    height = max(0, height - 1.0) * terrainFactor;
+    height = max(0, height) * terrainFactor;
     vPosition -= eyeOffset;
-    vPosition += normal * height;
+    //vPosition += normal * height;
 
     gl_Position = viewProjMat * vec4(vPosition, 1);
 

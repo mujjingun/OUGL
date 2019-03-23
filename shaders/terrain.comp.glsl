@@ -1,6 +1,5 @@
 #version 430
 #define WORKGROUP_SIZE 32
-#define MAX_LODS 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 layout(r32f, binding = 0) uniform image2DArray image;
 layout(binding = 1) uniform sampler2DArray tex;
@@ -16,24 +15,21 @@ struct Lod
 
 layout(std140, binding = 1) uniform LodData
 {
-    Lod uLods[MAX_LODS];
+    Lod uLods[36];
 };
 
-struct Update
+layout(std140, binding = 2) uniform Update
 {
     vec2 oldCenter;
     vec2 oldOrigin;
     int idx;
-};
-
-layout(std140, binding = 2) uniform UpdateData
-{
-    Update uUpdates[MAX_LODS];
-};
+} uUpdate;
 
 // side == -1: z = side
 // side >= 0: z = lod
 layout(location = 0) uniform int side;
+layout(location = 1) uniform vec3 xJac;
+layout(location = 2) uniform vec3 yJac;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 
@@ -178,32 +174,34 @@ vec3 spherizePoint(vec2 q, int side)
     );
 }
 
-bool skip(Update update, Lod lod, vec2 modUv) {
-    vec2 inner = mod(update.oldOrigin - lod.origin, 1);
-    if (update.oldCenter == lod.center.xy) {
+bool skip(Lod lod, vec2 modUv) {
+    return false;
+
+    vec2 inner = mod(uUpdate.oldOrigin - lod.origin, 1);
+    if (uUpdate.oldCenter == lod.center.xy) {
     }
-    else if (update.oldCenter.x <= lod.center.x && update.oldCenter.y <= lod.center.y) {
+    else if (uUpdate.oldCenter.x <= lod.center.x && uUpdate.oldCenter.y <= lod.center.y) {
         if (inner.x == 0.0) inner.x = 1.0;
         if (inner.y == 0.0) inner.y = 1.0;
         if (modUv.x < inner.x && modUv.y < inner.y) {
             return true;
         }
     }
-    else if (update.oldCenter.x <= lod.center.x && update.oldCenter.y >= lod.center.y) {
+    else if (uUpdate.oldCenter.x <= lod.center.x && uUpdate.oldCenter.y >= lod.center.y) {
         if (inner.x == 0.0) inner.x = 1.0;
         if (inner.y == 0.0) inner.y = 0.0;
         if (modUv.x < inner.x && modUv.y > inner.y) {
             return true;
         }
     }
-    else if (update.oldCenter.x >= lod.center.x && update.oldCenter.y <= lod.center.y) {
+    else if (uUpdate.oldCenter.x >= lod.center.x && uUpdate.oldCenter.y <= lod.center.y) {
         if (inner.x == 0.0) inner.x = 0.0;
         if (inner.y == 0.0) inner.y = 1.0;
         if (modUv.x > inner.x && modUv.y < inner.y) {
             return true;
         }
     }
-    else if (update.oldCenter.x >= lod.center.x && update.oldCenter.y >= lod.center.y) {
+    else if (uUpdate.oldCenter.x >= lod.center.x && uUpdate.oldCenter.y >= lod.center.y) {
         if (inner.x == 0.0) inner.x = 0.0;
         if (inner.y == 0.0) inner.y = 0.0;
         if (modUv.x > inner.x && modUv.y > inner.y) {
@@ -213,6 +211,7 @@ bool skip(Update update, Lod lod, vec2 modUv) {
     return false;
 }
 
+// cubic filtering
 vec4 cubic(float v)
 {
     vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
@@ -254,41 +253,42 @@ vec4 filt(vec2 texcoord, vec2 texscale, int idx)
 void main() {
     ivec3 pixel_coords = ivec3(gl_GlobalInvocationID.xyz);
     vec2 imgSize = vec2(imageSize(image).xy);
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / imgSize;
+    // map [1, N-2] -> [1/(2N), 1-1/(2N)]
+    vec2 t = 1 / imgSize;
+    vec2 uv = mix(t * .5, 1 - t * .5, vec2(pixel_coords.xy - 1) / (imgSize - 3));
 
     if (side < 0) {
         vec2 xy = uv * 2. - 1.;
         vec3 pos = spherizePoint(xy, pixel_coords.z);
 
-        float height = ridgeWithOctaves(pos * 2.0, 15);
+        float height = ridgeWithOctaves(pos * 2.0, 20) - 1.0;
         vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
 
         // output to a specific pixel in the image
         imageStore(image, pixel_coords, pixel);
     }
     else {
-        Update update = uUpdates[pixel_coords.z];
-        Lod lod = uLods[update.idx];
+        Lod lod = uLods[uUpdate.idx];
 
         vec2 modUv = fract(uv - lod.origin);
 
         // skip duplicate region
-        if (skip(update, lod, modUv)) {
+        if (skip(lod, modUv)) {
             return;
         }
-
-        // generate heightmap by perlin noise
-        vec2 xy = (modUv * 2 - 1) * lod.scale + lod.center;
-        vec3 pos = spherizePoint(xy, side);
-        float height = ridgeWithOctaves(pos * 2.0, 20);
-        vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
 
         // bicubic filter upsample parent
         Lod plod = uLods[lod.parentIdx];
         vec2 pOffset = ((lod.center - plod.center) / lod.scale + 1) / 4;
         vec2 pUv = modUv / 2 + pOffset + plod.origin;
+        pUv = mix(t * 1.5, 1 - t * 1.5, pUv);
         vec2 pmodUv = fract(pUv) * imgSize;
-        pixel = filt(pmodUv, 1 / imgSize, plod.imgIdx);
+        vec4 pixel = filt(pmodUv, 1 / imgSize, plod.imgIdx);
+
+        // generate heightmap by perlin noise
+        vec2 xy = modUv * 2 + lod.origin;
+        vec3 pos = xy.x * xJac + xy.y * yJac;
+        pixel.x += ridgeNoise(pos * 2.0 * exp2(15)) * lod.scale / 32;
 
         // output to a specific pixel in the image
         pixel_coords.z = lod.imgIdx;

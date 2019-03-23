@@ -16,25 +16,17 @@ layout(location = 9) uniform float terrainFactor;
 
 out vec3 color;
 
-vec2 getGradient(vec2 uv, float span) {
+vec2 getGradient(vec2 uv, float t, float span) {
     vec4 h = vec4(
-        textureOffset(tex, vec3(uv, vTexIdx), ivec2(-1, 0)).x,
-        textureOffset(tex, vec3(uv, vTexIdx), ivec2(1, 0)).x,
-        textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, -1)).x,
-        textureOffset(tex, vec3(uv, vTexIdx), ivec2(0, 1)).x
+        texture(tex, vec3(fract(uv + ivec2(-1, 0) * t), vTexIdx)).x,
+        texture(tex, vec3(fract(uv + ivec2(1, 0)  * t), vTexIdx)).x,
+        texture(tex, vec3(fract(uv + ivec2(0, -1) * t), vTexIdx)).x,
+        texture(tex, vec3(fract(uv + ivec2(0, 1)  * t), vTexIdx)).x
     );
-    h = max(vec4(0), h - 1.0) * terrainFactor;
+    h = max(vec4(0), h) * terrainFactor;
 
     const ivec3 size = textureSize(tex, 0);
     return vec2(h.y - h.x, h.w - h.z) * size.xy / span;
-}
-
-vec3 getNormal(vec2 uv, float span) {
-    vec2 grad = getGradient(uv, span);
-    vec3 normal = normalize(cross(vFx, vFy));
-    vec3 fx = vFx + normal * grad.x;
-    vec3 fy = vFy + normal * grad.y;
-    return normalize(cross(fx, fy));
 }
 
 void main() {
@@ -49,25 +41,33 @@ void main() {
 
     gl_FragDepth = vLogz;
 
-    float t = 1 / float(textureSize(tex, 0).x);
-    vec2 uv = (vUv + t) * (1.0 - t * 2);
-    uv = (uv + 1.0) * .5;
+    vec2 t = 1 / vec2(textureSize(tex, 0));
+    vec2 uv = (vUv + 1.0) * .5;
+    uv = mix(t * 1.5, 1 - t * 1.5, uv);
     uv = fract(uv + vModOrigin);
     vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
     float height = mapValue.r;
-    height = max(0, height - 1.0) * terrainFactor;
+    height = max(0, height) * terrainFactor;
 
-    color = mix(vec3(0.1, 0.8, 0.0), vec3(0.0, 0.0, 0.7), step(height, 0.0));
+    vec2 grad = getGradient(uv, t.x, vScale);
+    vec3 normal = normalize(cross(vFx, vFy));
+    vec3 fx = vFx + normal * grad.x;
+    vec3 fy = vFy + normal * grad.y;
+    normal = normalize(cross(fx, fy));
+    float slope = length(grad);
 
-    vec3 lightDir = normalize(vec3(-1, 0, 1));
-    vec3 normal = getNormal(uv, vScale);
+    vec3 groundColor = mix(vec3(0.2, 0.14, 0.03), vec3(0.1, 0.6, 0.0), step(slope, 0.2));
+    color = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
+    //color = (normal + 1) * .5;
+
+    const vec3 lightDir = normalize(vec3(-1, 0, 1));
 
     float light = max(dot(normal, lightDir) * 1.0, 0.001);
     vec3 lightReflect = normalize(reflect(lightDir, normal));
     vec3 vertexToEye = normalize(vPosition);
     float specularFactor = dot(vertexToEye, lightReflect);
-    specularFactor = pow(max(0, specularFactor), 32);
-    specularFactor = mix(specularFactor * 0.1, specularFactor, step(height, 0.0));
+    specularFactor = pow(max(0, specularFactor), 40);
+    specularFactor = mix(specularFactor * 0.1, specularFactor * 7, step(height, 0.0));
     light += specularFactor;
 
     color *= light;

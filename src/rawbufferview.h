@@ -25,6 +25,13 @@ public:
     {
     }
 
+    template <typename T>
+    explicit RawBufferView(T const& t)
+        : m_data(&t)
+        , m_size(sizeof(T))
+    {
+    }
+
     const void* data() const;
     std::size_t size() const;
 };
