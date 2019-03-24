@@ -43,8 +43,8 @@ void main() {
 
     vec2 t = 1 / vec2(textureSize(tex, 0));
     vec2 uv = (vUv + 1.0) * .5;
-    uv = mix(t * 1.5, 1 - t * 1.5, uv);
     uv = fract(uv + vModOrigin);
+    uv = mix(t * 1.5, 1 - t * 1.5, uv);
     vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
     float height = mapValue.r;
     height = max(0, height) * terrainFactor;
