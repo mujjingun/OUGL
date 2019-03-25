@@ -17,8 +17,8 @@ public:
     VertexBuffer(VertexBuffer const&) = delete;
     VertexBuffer& operator=(VertexBuffer const&) = delete;
 
-    VertexBuffer(VertexBuffer&& other);
-    VertexBuffer& operator=(VertexBuffer&& other);
+    VertexBuffer(VertexBuffer&& other) noexcept;
+    VertexBuffer& operator=(VertexBuffer&& other) noexcept;
 
     void setData(RawBufferView data, GLenum usage);
     void use(GLenum target, GLuint index, GLintptr offset, GLsizeiptr size) const;

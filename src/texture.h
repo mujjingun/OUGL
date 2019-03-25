@@ -16,8 +16,8 @@ public:
     Texture(Texture const&) = delete;
     Texture& operator=(Texture const&) = delete;
 
-    Texture(Texture&& other);
-    Texture& operator=(Texture&& other);
+    Texture(Texture&& other) noexcept;
+    Texture& operator=(Texture&& other) noexcept;
 
     GLuint id() const;
 
@@ -36,6 +36,8 @@ public:
 
     void use(GLuint unit) const;
     void useAsImage(GLuint unit, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
+
+    void saveToImage(GLenum format, GLenum type, GLsizei width, GLsizei height, GLsizei depth, const char* filename) const;
 };
 }
 

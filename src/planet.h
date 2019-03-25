@@ -41,14 +41,14 @@ class Planet
 
     struct LodData {
         glm::vec2 center;
-        glm::vec2 origin;
         float scale;
         int imgIdx;
         int parentIdx;
-        int unused[1]{};
+        int unused[3]{};
     };
-    static_assert(sizeof(LodData) % 16 == 0, "ubo struct is not aligned to 16 bytes");
     std::vector<LodData> m_lodData;
+
+    bool m_mPressedBefore = false;
 
 public:
     Planet(Scene const* scene);

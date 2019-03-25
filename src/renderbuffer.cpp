@@ -19,12 +19,12 @@ RenderBuffer::~RenderBuffer()
     glDeleteRenderbuffers(1, &m_id);
 }
 
-RenderBuffer::RenderBuffer(RenderBuffer&& other)
+RenderBuffer::RenderBuffer(RenderBuffer&& other) noexcept
     : m_id(std::exchange(other.m_id, 0))
 {
 }
 
-RenderBuffer& RenderBuffer::operator=(RenderBuffer&& other)
+RenderBuffer& RenderBuffer::operator=(RenderBuffer&& other) noexcept
 {
     glDeleteRenderbuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);

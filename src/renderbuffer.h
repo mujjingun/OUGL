@@ -15,8 +15,8 @@ public:
     RenderBuffer(RenderBuffer const&) = delete;
     RenderBuffer& operator=(RenderBuffer const&) = delete;
 
-    RenderBuffer(RenderBuffer&& other);
-    RenderBuffer& operator=(RenderBuffer&& other);
+    RenderBuffer(RenderBuffer&& other) noexcept;
+    RenderBuffer& operator=(RenderBuffer&& other) noexcept;
 
     void allocateStorage(GLenum internalformat, GLsizei width, GLsizei height);
 

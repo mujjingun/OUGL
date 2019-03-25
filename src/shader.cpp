@@ -179,12 +179,12 @@ Shader::~Shader()
     glDeleteProgram(m_id);
 }
 
-Shader::Shader(Shader&& other)
+Shader::Shader(Shader&& other) noexcept
     : m_id(std::exchange(other.m_id, 0))
 {
 }
 
-Shader& Shader::operator=(Shader&& other)
+Shader& Shader::operator=(Shader&& other) noexcept
 {
     glDeleteProgram(m_id);
     m_id = std::exchange(other.m_id, 0);

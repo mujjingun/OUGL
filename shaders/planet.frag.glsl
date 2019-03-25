@@ -8,7 +8,6 @@ in float vLogz;
 flat in float vScale;
 flat in vec4 vDiscardReg;
 flat in int vTexIdx;
-flat in vec2 vModOrigin;
 
 layout(binding = 0) uniform sampler2DArray tex;
 
@@ -18,10 +17,10 @@ out vec3 color;
 
 vec2 getGradient(vec2 uv, float t, float span) {
     vec4 h = vec4(
-        texture(tex, vec3(fract(uv + ivec2(-1, 0) * t), vTexIdx)).x,
-        texture(tex, vec3(fract(uv + ivec2(1, 0)  * t), vTexIdx)).x,
-        texture(tex, vec3(fract(uv + ivec2(0, -1) * t), vTexIdx)).x,
-        texture(tex, vec3(fract(uv + ivec2(0, 1)  * t), vTexIdx)).x
+        texture(tex, vec3(uv + ivec2(-1, 0) * t, vTexIdx)).x,
+        texture(tex, vec3(uv + ivec2(1, 0)  * t, vTexIdx)).x,
+        texture(tex, vec3(uv + ivec2(0, -1) * t, vTexIdx)).x,
+        texture(tex, vec3(uv + ivec2(0, 1)  * t, vTexIdx)).x
     );
     h = max(vec4(0), h) * terrainFactor;
 
@@ -43,8 +42,7 @@ void main() {
 
     vec2 t = 1 / vec2(textureSize(tex, 0));
     vec2 uv = (vUv + 1.0) * .5;
-    uv = fract(uv + vModOrigin);
-    uv = mix(t * 1.5, 1 - t * 1.5, uv);
+    uv = mix(t * 2.5, 1 - t * 2.5, uv);
     vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
     float height = mapValue.r;
     height = max(0, height) * terrainFactor;
@@ -58,7 +56,6 @@ void main() {
 
     vec3 groundColor = mix(vec3(0.2, 0.14, 0.03), vec3(0.1, 0.6, 0.0), step(slope, 0.2));
     color = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
-    //color = (normal + 1) * .5;
 
     const vec3 lightDir = normalize(vec3(-1, 0, 1));
 

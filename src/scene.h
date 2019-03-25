@@ -52,7 +52,7 @@ class Scene {
     void keyDown(unsigned char key);
     void keyUp(unsigned char key);
 
-    int m_windowWidth, m_windowHeight;
+    int m_windowWidth = -1, m_windowHeight = -1;
 
     void reshapeWindow(int width, int height);
 

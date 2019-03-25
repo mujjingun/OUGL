@@ -23,8 +23,8 @@ public:
     FrameBuffer(FrameBuffer const&) = delete;
     FrameBuffer& operator=(FrameBuffer const&) = delete;
 
-    FrameBuffer(FrameBuffer&& other);
-    FrameBuffer& operator=(FrameBuffer&& other);
+    FrameBuffer(FrameBuffer&& other) noexcept;
+    FrameBuffer& operator=(FrameBuffer&& other) noexcept;
 
     static FrameBuffer& defaultBuffer();
 

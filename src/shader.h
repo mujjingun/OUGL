@@ -19,8 +19,8 @@ public:
     Shader(Shader const&) = delete;
     Shader& operator=(Shader const&) = delete;
 
-    Shader(Shader&& other);
-    Shader& operator=(Shader&& other);
+    Shader(Shader&& other) noexcept;
+    Shader& operator=(Shader&& other) noexcept;
 
     void setUniform(GLint location, int value);
     void setUniform(GLint location, float value);

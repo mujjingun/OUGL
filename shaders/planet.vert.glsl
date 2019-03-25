@@ -19,7 +19,6 @@ layout(location = 1) in vec2 offset;
 layout(location = 2) in float side;
 layout(location = 3) in float scale;
 layout(location = 4) in vec4 discardRegion;
-layout(location = 5) in vec2 modOrigin;
 
 layout(binding = 0) uniform sampler2DArray tex;
 
@@ -31,7 +30,6 @@ out float vLogz;
 flat out float vScale;
 flat out vec4 vDiscardReg;
 flat out int vTexIdx;
-flat out vec2 vModOrigin;
 
 vec3 applySide(vec3 cube, int side)
 {
@@ -87,7 +85,6 @@ void main() {
     vDiscardReg = discardRegion;
     vTexIdx = gl_InstanceID;
     vScale = scale;
-    vModOrigin = modOrigin;
 
     vec2 c = pos * scale + offset;
     vec3 normal;
@@ -128,7 +125,6 @@ void main() {
     vec2 t = 1 / vec2(textureSize(tex, 0));
     vec2 uv = (vUv + 1.0) * .5;
     uv = mix(t, 1 - t, uv);
-    uv = fract(uv + vModOrigin);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
     height = max(0, height) * terrainFactor;
     vPosition -= eyeOffset;

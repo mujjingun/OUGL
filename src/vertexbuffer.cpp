@@ -19,12 +19,12 @@ VertexBuffer::~VertexBuffer()
     glDeleteBuffers(1, &m_id);
 }
 
-VertexBuffer::VertexBuffer(VertexBuffer&& other)
+VertexBuffer::VertexBuffer(VertexBuffer&& other) noexcept
     : m_id(std::exchange(other.m_id, 0))
 {
 }
 
-VertexBuffer& VertexBuffer::operator=(VertexBuffer&& other)
+VertexBuffer& VertexBuffer::operator=(VertexBuffer&& other) noexcept
 {
     glDeleteBuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);

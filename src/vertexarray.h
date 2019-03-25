@@ -17,8 +17,8 @@ public:
     VertexArray(VertexArray const&) = delete;
     VertexArray& operator=(VertexArray const&) = delete;
 
-    VertexArray(VertexArray&& other);
-    VertexArray& operator=(VertexArray&& other);
+    VertexArray(VertexArray&& other) noexcept;
+    VertexArray& operator=(VertexArray&& other) noexcept;
 
     class BufferBinding {
         VertexArray* m_array;

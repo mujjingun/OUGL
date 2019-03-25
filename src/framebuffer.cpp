@@ -30,12 +30,12 @@ FrameBuffer::~FrameBuffer()
     glDeleteFramebuffers(1, &m_id);
 }
 
-FrameBuffer::FrameBuffer(FrameBuffer &&other)
+FrameBuffer::FrameBuffer(FrameBuffer &&other) noexcept
     : m_id(std::exchange(other.m_id, 0))
 {
 }
 
-FrameBuffer &FrameBuffer::operator=(FrameBuffer &&other)
+FrameBuffer &FrameBuffer::operator=(FrameBuffer &&other) noexcept
 {
     glDeleteFramebuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
