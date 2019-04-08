@@ -185,7 +185,6 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     , m_position(position)
     , m_terrainFactor(0.0005f)
     , m_terrainTextures(GL_TEXTURE_2D_ARRAY)
-    , m_lodData(m_scene->params().terrainTextureCount)
 {
     std::vector<glm::vec2> gridPoints;
     for (float col = 0; col < scene->params().gridSize; ++col) {
@@ -257,14 +256,6 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
     glDispatchCompute(terrainTextureSize / 32, terrainTextureSize / 32, 6);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-    // set lod data
-    m_lodData[0] = { { 0, 0 }, 1.0f, 0, -1 };
-    m_lodData[1] = { { 0, 0 }, 1.0f, 1, -1 };
-    m_lodData[2] = { { 0, 0 }, 1.0f, 2, -1 };
-    m_lodData[3] = { { 0, 0 }, 1.0f, 3, -1 };
-    m_lodData[4] = { { 0, 0 }, 1.0f, 4, -1 };
-    m_lodData[5] = { { 0, 0 }, 1.0f, 5, -1 };
 }
 
 void Planet::render()
@@ -285,7 +276,7 @@ void Planet::render()
 
     VoxelCoords centeredPos = m_scene->player().position() - m_position;
     if (centeredPos.voxel != glm::i64vec3()) {
-        // planet is more than a voxel away; abort rendering
+        // planet is more than a voxel away; skip rendering
         return;
     }
 
@@ -313,51 +304,29 @@ void Planet::render()
     double normalizedDistance = distance / static_cast<double>(m_planetRadius);
 
     const int levelsOfDetail = glm::clamp(
-        -2 - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods - 1);
+        m_scene->params().zoomFactor - std::ilogb(normalizedDistance), 1, m_scene->params().maxLods - 1);
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
-    struct LodUpdateData {
-        glm::vec2 oldCenter;
-        int idx;
-    };
 
     const double snapSize = m_scene->params().snapSize;
     const double cellSize = 1 / snapSize;
 
-    bool doUpdateLod = false;
-    LodUpdateData lodUpdateInfo;
+    int lodUpdateIdx = -1;
 
     for (int lod = 1; lod < levelsOfDetail; ++lod) {
         double scale = glm::exp2(static_cast<double>(-lod));
         double mod = scale * 2. * cellSize;
 
         glm::i64vec2 snapNums = glm::round(cubeCoords.pos / mod);
-        bool updateNow = !doUpdateLod && (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums);
+
+        bool updateNow = false;
+        if (lodUpdateIdx < 0){
+            updateNow = (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums);
+        }
 
         if (updateNow) {
             // generate update info
-            glm::vec2 center = glm::dvec2(snapNums) * mod;
-            glm::vec2 oldCenter;
-            if (lod >= int(m_snapNums.size())) {
-                oldCenter = center;
-            } else {
-                oldCenter = glm::dvec2(m_snapNums[lod]) * mod;
-            }
-
-            int index = 5 + lod;
-            int parentIdx = lod == 1 ? cubeCoords.side : index - 1;
-
-            LodData lodData;
-            lodData.center = center;
-            lodData.scale = static_cast<float>(scale);
-            lodData.imgIdx = index;
-            lodData.parentIdx = parentIdx;
-            m_lodData[index] = lodData;
-
-            lodUpdateInfo.oldCenter = oldCenter;
-            lodUpdateInfo.idx = index;
-
-            doUpdateLod = true;
+            lodUpdateIdx = 5 + lod;
 
             std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << std::endl;
         } else {
@@ -400,21 +369,50 @@ void Planet::render()
     m_snapNums = currentSnapNums;
 
     // update terrain textures
-    if (doUpdateLod) {
-        m_lodUboBuf.setData(m_lodData, GL_DYNAMIC_DRAW);
-        m_lodUpdUboBuf.setData(RawBufferView(lodUpdateInfo), GL_DYNAMIC_DRAW);
+    if (lodUpdateIdx >= 0) {
+
+        struct LodData {
+            glm::vec2 center;
+            float scale;
+            int imgIdx;
+            int parentIdx;
+            int unused[3]{};
+        };
+
+        std::vector<LodData> lodDataList(m_scene->params().terrainTextureCount);
+        for (int i = 0; i < 6; ++i) {
+            lodDataList[i] = { { 0, 0 }, 1.0f, i, -1 };
+        }
+
+        for (int lod = 1; lod < levelsOfDetail; ++lod) {
+            double scale = glm::exp2(static_cast<double>(-lod));
+            double mod = scale * 2. * cellSize;
+            glm::vec2 center = glm::dvec2(m_snapNums[lod]) * mod;
+            int index = 5 + lod;
+            int parentIdx = lod == 1 ? cubeCoords.side : index - 1;
+
+            LodData lodData;
+            lodData.center = center;
+            lodData.scale = static_cast<float>(scale);
+            lodData.imgIdx = index;
+            lodData.parentIdx = parentIdx;
+            lodDataList[index] = lodData;
+        }
+
+        m_lodUboBuf.setData(lodDataList, GL_DYNAMIC_DRAW);
         terrainShader().setUniform(0, cubeCoords.side);
 
-        auto derivs = derivatives(m_lodData[lodUpdateInfo.idx].center, cubeCoords.side);
+        auto derivs = derivatives(lodDataList[lodUpdateIdx].center, cubeCoords.side);
         terrainShader().setUniform(1, glm::vec3(derivs.fx));
         terrainShader().setUniform(2, glm::vec3(derivs.fy));
+
+        terrainShader().setUniform(3, lodUpdateIdx);
 
         // write to texture
         terrainShader().use();
         m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
         m_terrainTextures.use(1);
         m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);
-        m_lodUpdUboBuf.use(GL_UNIFORM_BUFFER, 2);
 
         const int numWorkGroups = m_scene->params().terrainTextureSize / 32;
         glDispatchCompute(numWorkGroups, numWorkGroups, 1);

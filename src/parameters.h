@@ -9,6 +9,7 @@ struct Parameters {
     int maxLods;
     int gridSize;
     int snapSize;
+    int zoomFactor;
     double smoothingFactor;
     bool renderWireframe;
     double anglePerPixel;

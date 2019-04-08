@@ -17,17 +17,12 @@ layout(std140, binding = 1) uniform LodData
     Lod uLods[36];
 };
 
-layout(std140, binding = 2) uniform Update
-{
-    vec2 oldCenter;
-    int idx;
-} uUpdate;
-
 // side == -1: z = side
 // side >= 0: z = lod
 layout(location = 0) uniform int side;
 layout(location = 1) uniform vec3 xJac;
 layout(location = 2) uniform vec3 yJac;
+layout(location = 3) uniform int uIdx;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 
@@ -231,7 +226,7 @@ void main() {
         imageStore(image, pixel_coords, pixel);
     }
     else {
-        Lod lod = uLods[uUpdate.idx];
+        Lod lod = uLods[uIdx];
 
         // map [0, N-1] -> [1/(2N), 1-1/(2N)]
         vec2 uv = vec2(pixel_coords.xy) / imgSize;
