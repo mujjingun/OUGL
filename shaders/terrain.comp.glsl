@@ -239,9 +239,9 @@ void main() {
         vec4 pixel = filt(pUv * imgSize, 1 / imgSize, plod.imgIdx);
 
         // generate heightmap by perlin noise
-        //vec2 xy = modUv * 2 + lod.origin;
-        //vec3 pos = xy.x * xJac + xy.y * yJac;
-        //pixel.x += ridgeNoise(pos * 2.0 * exp2(15)) * lod.scale / 32;
+        vec2 xy = uv;
+        vec3 pos = xy.x * xJac + xy.y * yJac;
+        pixel.x += snoise(pos / lod.scale * exp2(15)) * lod.scale / 8;
 
         // output to a specific pixel in the image
         pixel_coords.z = lod.imgIdx;
