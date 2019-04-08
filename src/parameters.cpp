@@ -1,6 +1,6 @@
 #include "parameters.h"
 
-#define LOD_DEBUG 1
+#define LOD_DEBUG 0
 
 namespace ou {
 

@@ -128,7 +128,7 @@ void main() {
     float height = texture(tex, vec3(uv, vTexIdx)).r;
     height = max(0, height) * terrainFactor;
     vPosition -= eyeOffset;
-    //vPosition += normal * height;
+    vPosition += normal * height;
 
     gl_Position = viewProjMat * vec4(vPosition, 1);
 

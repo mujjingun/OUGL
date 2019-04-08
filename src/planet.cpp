@@ -320,7 +320,7 @@ void Planet::render()
         glm::i64vec2 snapNums = glm::round(cubeCoords.pos / mod);
 
         bool updateNow = false;
-        if (lodUpdateIdx < 0){
+        if (lodUpdateIdx < 0) {
             updateNow = (lod >= int(m_snapNums.size()) || m_snapNums[lod] != snapNums);
         }
 
@@ -373,26 +373,29 @@ void Planet::render()
 
         struct LodData {
             glm::vec2 center;
+            glm::vec2 pDiff;
             float scale;
             int imgIdx;
             int parentIdx;
-            int unused[3]{};
+            int unused[1]{};
         };
 
         std::vector<LodData> lodDataList(m_scene->params().terrainTextureCount);
         for (int i = 0; i < 6; ++i) {
-            lodDataList[i] = { { 0, 0 }, 1.0f, i, -1 };
+            lodDataList[i] = { { 0, 0 }, {}, 1.0f, i, -1 };
         }
 
         for (int lod = 1; lod < levelsOfDetail; ++lod) {
             double scale = glm::exp2(static_cast<double>(-lod));
             double mod = scale * 2. * cellSize;
-            glm::vec2 center = glm::dvec2(m_snapNums[lod]) * mod;
             int index = 5 + lod;
             int parentIdx = lod == 1 ? cubeCoords.side : index - 1;
+            glm::dvec2 center = glm::dvec2(m_snapNums[lod]) * mod;
+            glm::dvec2 pCenter = glm::dvec2(m_snapNums[lod - 1]) * mod * 2.0;
 
             LodData lodData;
             lodData.center = center;
+            lodData.pDiff = (center - pCenter) / (scale * 4);
             lodData.scale = static_cast<float>(scale);
             lodData.imgIdx = index;
             lodData.parentIdx = parentIdx;

@@ -7,6 +7,7 @@ layout(binding = 1) uniform sampler2DArray tex;
 struct Lod
 {
     vec2 center;
+    vec2 pDiff;
     float scale;
     int imgIdx;
     int parentIdx;
@@ -233,7 +234,7 @@ void main() {
 
         // bicubic filter upsample parent
         Lod plod = uLods[lod.parentIdx];
-        vec2 pOffset = ((lod.center - plod.center) / (plod.scale * 2)) * (1 - (MARGIN * 2 + 1) * t);
+        vec2 pOffset = lod.pDiff * (1 - (MARGIN * 2 + 1) * t);
         vec2 pUv = uv / 2 + .25 + pOffset;
         vec4 pixel = filt(pUv * imgSize, 1 / imgSize, plod.imgIdx);
 
