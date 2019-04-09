@@ -5,7 +5,7 @@
 
 namespace ou {
 
-class VertexBuffer;
+class DeviceBuffer;
 
 class VertexArray {
     GLuint m_id;
@@ -27,7 +27,7 @@ public:
         BufferBinding(VertexArray* array, GLuint index);
 
     public:
-        void bindVertexBuffer(const VertexBuffer& buf, GLintptr offset, GLsizei stride);
+        void bindVertexBuffer(const DeviceBuffer& buf, GLintptr offset, GLsizei stride);
         void setBindingDivisor(GLuint divisor);
         GLuint index() const;
 

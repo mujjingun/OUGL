@@ -126,7 +126,7 @@ void main() {
     vec2 uv = (vUv + 1.0) * .5;
     uv = mix(t, 1 - t, uv);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
-    height = max(0, height) * terrainFactor;
+    height = max(0, height) * terrainFactor * 10; // TODO
     vPosition -= eyeOffset;
     vPosition += normal * height;
 

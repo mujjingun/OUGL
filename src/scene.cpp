@@ -189,7 +189,7 @@ void Scene::render()
 
     m_hdrVao.use();
     m_hdrShader.use();
-    m_hdrColorTexture.use(0);
+    m_hdrColorTexture.useAsTexture(0);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     // Update mouse cursor stuff

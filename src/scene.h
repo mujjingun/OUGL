@@ -1,16 +1,16 @@
 #ifndef SCENE_H
 #define SCENE_H
 
+#include <chrono>
+#include <glm/glm.hpp>
 #include <memory>
 #include <unordered_map>
-#include <chrono>
 #include <vector>
-#include <glm/glm.hpp>
 
 #include "framebuffer.h"
-#include "texture.h"
 #include "renderbuffer.h"
 #include "shader.h"
+#include "texture.h"
 #include "vertexarray.h"
 
 namespace ou {
@@ -34,11 +34,11 @@ class Scene {
     std::chrono::system_clock::time_point m_lastFrameTime;
     std::chrono::system_clock::duration m_deltaTime;
 
-    glm::dvec2 m_mousePos;
-    glm::dvec2 m_realMousePos;
+    glm::dvec2 m_mousePos = { 0, 0 };
+    glm::dvec2 m_realMousePos = { 0, 0 };
 
-    glm::dvec2 m_lastMousePos;
-    glm::dvec2 m_smoothedMouseDelta;
+    glm::dvec2 m_lastMousePos = { 0, 0 };
+    glm::dvec2 m_smoothedMouseDelta = { 0, 0 };
     bool m_mousePosInvalidated = true;
     bool m_captureMouse = false;
     bool m_warpPointer = false;

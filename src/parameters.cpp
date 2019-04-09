@@ -11,7 +11,7 @@ Parameters::Parameters()
 #if LOD_DEBUG
     , zoomFactor(2)
 #else
-    , zoomFactor(-2)
+    , zoomFactor(-1)
 #endif
     , smoothingFactor(15)
 #if LOD_DEBUG

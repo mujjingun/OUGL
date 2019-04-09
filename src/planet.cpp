@@ -184,7 +184,15 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     , m_planetRadius(planetRadius)
     , m_position(position)
     , m_terrainFactor(0.0005f)
+    , m_vao{}
+    , m_gridBuf{}
+    , m_instanceAttrBuf{}
     , m_terrainTextures(GL_TEXTURE_2D_ARRAY)
+    , m_terrainPbos{}
+    , m_lodUboBuf{}
+    , m_vertexCount{}
+    , m_snapNums{}
+    , m_mPressedBefore(false)
 {
     std::vector<glm::vec2> gridPoints;
     for (float col = 0; col < scene->params().gridSize; ++col) {
@@ -258,6 +266,13 @@ Planet::Planet(Scene const* scene, int64_t planetRadius, VoxelCoords position)
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
+static glm::i64vec2 eucmod(glm::i64vec2 a, std::int64_t base)
+{
+    a.x = (a.x < 0 ? ((a.x % base) + base) % base : a.x % base);
+    a.y = (a.y < 0 ? ((a.y % base) + base) % base : a.y % base);
+    return a;
+}
+
 void Planet::render()
 {
     if (m_scene->isKeyPressed('m')) {
@@ -308,8 +323,8 @@ void Planet::render()
 
     std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
 
-    const double snapSize = m_scene->params().snapSize;
-    const double cellSize = 1 / snapSize;
+    const int snapSize = m_scene->params().snapSize;
+    const double cellSize = 1.0 / snapSize;
 
     int lodUpdateIdx = -1;
 
@@ -372,7 +387,7 @@ void Planet::render()
     if (lodUpdateIdx >= 0) {
 
         struct LodData {
-            glm::vec2 center;
+            glm::vec2 align;
             glm::vec2 pDiff;
             float scale;
             int imgIdx;
@@ -385,6 +400,7 @@ void Planet::render()
             lodDataList[i] = { { 0, 0 }, {}, 1.0f, i, -1 };
         }
 
+        glm::dvec2 updateCenter;
         for (int lod = 1; lod < levelsOfDetail; ++lod) {
             double scale = glm::exp2(static_cast<double>(-lod));
             double mod = scale * 2. * cellSize;
@@ -393,8 +409,12 @@ void Planet::render()
             glm::dvec2 center = glm::dvec2(m_snapNums[lod]) * mod;
             glm::dvec2 pCenter = glm::dvec2(m_snapNums[lod - 1]) * mod * 2.0;
 
+            if (lod == lodUpdateIdx) {
+                updateCenter = center;
+            }
+
             LodData lodData;
-            lodData.center = center;
+            lodData.align = glm::dvec2(eucmod(m_snapNums[lod], snapSize)) * cellSize;
             lodData.pDiff = (center - pCenter) / (scale * 4);
             lodData.scale = static_cast<float>(scale);
             lodData.imgIdx = index;
@@ -405,7 +425,7 @@ void Planet::render()
         m_lodUboBuf.setData(lodDataList, GL_DYNAMIC_DRAW);
         terrainShader().setUniform(0, cubeCoords.side);
 
-        auto derivs = derivatives(lodDataList[lodUpdateIdx].center, cubeCoords.side);
+        auto derivs = derivatives(updateCenter, cubeCoords.side);
         terrainShader().setUniform(1, glm::vec3(derivs.fx));
         terrainShader().setUniform(2, glm::vec3(derivs.fy));
 
@@ -414,7 +434,7 @@ void Planet::render()
         // write to texture
         terrainShader().use();
         m_terrainTextures.useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
-        m_terrainTextures.use(1);
+        m_terrainTextures.useAsTexture(1);
         m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);
 
         const int numWorkGroups = m_scene->params().terrainTextureSize / 32;
@@ -465,7 +485,7 @@ void Planet::render()
 
     shader().use();
     m_vao.use();
-    m_terrainTextures.use(0);
+    m_terrainTextures.useAsTexture(0);
     glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
 }
 }

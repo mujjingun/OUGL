@@ -6,7 +6,7 @@ layout(binding = 1) uniform sampler2DArray tex;
 
 struct Lod
 {
-    vec2 center;
+    vec2 align;
     vec2 pDiff;
     float scale;
     int imgIdx;
@@ -239,9 +239,9 @@ void main() {
         vec4 pixel = filt(pUv * imgSize, 1 / imgSize, plod.imgIdx);
 
         // generate heightmap by perlin noise
-        vec2 xy = uv;
-        vec3 pos = xy.x * xJac + xy.y * yJac;
-        pixel.x += snoise(pos / lod.scale * exp2(15)) * lod.scale / 8;
+        vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
+        pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 8;
+        //pixel.x = xy.x + xy.y;
 
         // output to a specific pixel in the image
         pixel_coords.z = lod.imgIdx;

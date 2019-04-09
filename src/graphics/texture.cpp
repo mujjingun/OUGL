@@ -56,7 +56,7 @@ void Texture::uploadTexture3D(GLint level, GLint xoffset, GLint yoffset, GLint z
     glTextureSubImage3D(m_id, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
 }
 
-void Texture::use(GLuint unit) const
+void Texture::useAsTexture(GLuint unit) const
 {
     glBindTextureUnit(unit, m_id);
 }

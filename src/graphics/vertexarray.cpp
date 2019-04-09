@@ -1,6 +1,6 @@
 #include "vertexarray.h"
 
-#include "vertexbuffer.h"
+#include "devicebuffer.h"
 
 #include <algorithm>
 
@@ -54,7 +54,7 @@ VertexArray::BufferBinding::BufferBinding(VertexArray* array, GLuint index)
 {
 }
 
-void VertexArray::BufferBinding::bindVertexBuffer(const VertexBuffer& buf, GLintptr offset, GLsizei stride)
+void VertexArray::BufferBinding::bindVertexBuffer(const DeviceBuffer& buf, GLintptr offset, GLsizei stride)
 {
     glVertexArrayVertexBuffer(m_array->id(), m_index, buf.id(), offset, stride);
 }

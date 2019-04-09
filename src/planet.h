@@ -5,8 +5,10 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
+
 #include "vertexarray.h"
-#include "vertexbuffer.h"
+#include "devicebuffer.h"
 #include "shader.h"
 #include "voxelcoords.h"
 #include "texture.h"
@@ -27,10 +29,12 @@ class Planet
 
     VertexArray m_vao;
 
-    VertexBuffer m_gridBuf, m_instanceAttrBuf;
+    DeviceBuffer m_gridBuf, m_instanceAttrBuf;
 
     Texture m_terrainTextures;
-    VertexBuffer m_lodUboBuf;
+    std::array<DeviceBuffer, 2> m_terrainPbos;
+
+    DeviceBuffer m_lodUboBuf;
 
     Shader& shader();
     Shader& terrainShader();

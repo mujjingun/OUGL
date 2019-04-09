@@ -34,7 +34,7 @@ public:
     void uploadTexture3D(GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth,
         GLenum format, GLenum type, const void* pixels);
 
-    void use(GLuint unit) const;
+    void useAsTexture(GLuint unit) const;
     void useAsImage(GLuint unit, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
 
     void saveToImage(GLenum format, GLenum type, GLsizei width, GLsizei height, GLsizei depth, const char* filename) const;
