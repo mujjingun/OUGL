@@ -35,11 +35,11 @@ void InputSystem::update(ECSEngine& engine, float deltaTime)
 
     // capture mouse
     if (input.m_mouseCaptured) {
-        if (input.m_realMousePos.x > scene.windowSize.x * .75
-            || input.m_realMousePos.x < scene.windowSize.x * .25
-            || input.m_realMousePos.y > scene.windowSize.y * .75
-            || input.m_realMousePos.y < scene.windowSize.y * .25) {
-            glutWarpPointer(scene.windowSize.x / 2, scene.windowSize.x / 2);
+        if (input.m_realMousePos.x > scene.windowSize.x * .6
+            || input.m_realMousePos.x < scene.windowSize.x * .4
+            || input.m_realMousePos.y > scene.windowSize.y * .6
+            || input.m_realMousePos.y < scene.windowSize.y * .4) {
+            glutWarpPointer(scene.windowSize.x / 2, scene.windowSize.y / 2);
             input.m_mouseInvalidated = true;
         }
     }

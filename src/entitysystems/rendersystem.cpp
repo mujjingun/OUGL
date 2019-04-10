@@ -87,6 +87,12 @@ void RenderSystem::render(ECSEngine& engine)
     for (Entity& ent : engine.iterate<PlanetComponent>()) {
         PlanetComponent& planet = ent.get<PlanetComponent>();
 
+        VoxelCoords centeredPos = scene.position - planet.position;
+        if (centeredPos.voxel != glm::i64vec3()) {
+            // planet is more than a voxel away; skip rendering
+            return;
+        }
+
         // initialize top-level lod
         if (!planet.terrainTextures) {
             planet.terrainTextures = std::make_shared<Texture>(GL_TEXTURE_2D_ARRAY);
@@ -106,12 +112,6 @@ void RenderSystem::render(ECSEngine& engine)
             planet.terrainTextures->useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
             glDispatchCompute(params.terrainTextureSize / 32, params.terrainTextureSize / 32, 6);
             glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-        }
-
-        VoxelCoords centeredPos = scene.position - planet.position;
-        if (centeredPos.voxel != glm::i64vec3()) {
-            // planet is more than a voxel away; skip rendering
-            return;
         }
 
         glm::dvec3 normPos = glm::normalize(glm::dvec3(centeredPos.pos));
@@ -268,41 +268,20 @@ void RenderSystem::render(ECSEngine& engine)
 
         m_instanceAttrBuf.setData(instanceBuffer, GL_STATIC_DRAW);
 
-        // view matrix
         glm::dmat4 viewMat = glm::lookAt({}, scene.lookDirection, scene.upDirection);
-
-        // projection matrix
         double aspectRatio = static_cast<double>(scene.windowSize.x) / scene.windowSize.y;
         glm::dmat4 projMat = glm::perspective(glm::radians(60.0), aspectRatio, 0.1, 10.0);
 
-        // view-projection matrix
+        // set uniforms
         m_planetShader.setUniform(0, projMat * viewMat);
-
-        // origin
         m_planetShader.setUniform(1, glm::vec2(cubeCoords.pos));
-
-        // xJac
         m_planetShader.setUniform(2, glm::vec3(derivs.fx));
-
-        // yJac
         m_planetShader.setUniform(3, glm::vec3(derivs.fy));
-
-        // xxCurv
         m_planetShader.setUniform(4, glm::vec3(curvs.fxx));
-
-        // xyCurv
         m_planetShader.setUniform(5, glm::vec3(curvs.fxy));
-
-        // yyCurv
         m_planetShader.setUniform(6, glm::vec3(curvs.fyy));
-
-        // playerSide
         m_planetShader.setUniform(7, cubeCoords.side);
-
-        // eyePos
         m_planetShader.setUniform(8, glm::vec3(surfaceOffsetInRadiusUnits));
-
-        // terrainFactor
         m_planetShader.setUniform(9, planet.terrainFactor);
 
         m_planetShader.use();
