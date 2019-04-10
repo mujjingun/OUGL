@@ -80,6 +80,11 @@ void VertexArray::Attribute::setFormat(GLuint size, GLenum type, GLboolean norma
     glVertexArrayAttribFormat(m_array->id(), m_index, size, type, normalized, relativeoffset);
 }
 
+void VertexArray::Attribute::setIFormat(GLuint size, GLenum type, GLuint relativeoffset)
+{
+    glVertexArrayAttribIFormat(m_array->id(), m_index, size, type, relativeoffset);
+}
+
 void VertexArray::Attribute::setBinding(const BufferBinding& binding)
 {
     glVertexArrayAttribBinding(m_array->id(), m_index, binding.index());

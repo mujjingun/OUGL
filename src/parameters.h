@@ -16,6 +16,7 @@ struct Parameters {
     int terrainTextureSize;
     int terrainTextureCount;
     int playerHeight;
+    int maxRenderLods;
 };
 }
 

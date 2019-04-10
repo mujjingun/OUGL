@@ -23,6 +23,8 @@ Parameters::Parameters()
     , terrainTextureSize(1024)
     , terrainTextureCount(maxLods + 6)
     , playerHeight(1000)
+    , maxRenderLods(10)
 {
 }
+
 }

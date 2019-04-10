@@ -16,9 +16,10 @@ layout(location = 0) in vec2 pos;
 
 // per-instance attributes
 layout(location = 1) in vec2 offset;
-layout(location = 2) in float side;
+layout(location = 2) in int side;
 layout(location = 3) in float scale;
 layout(location = 4) in vec4 discardRegion;
+layout(location = 5) in int texIdx;
 
 layout(binding = 0) uniform sampler2DArray tex;
 
@@ -83,7 +84,7 @@ void derivative(vec2 cube, int side, out vec3 dfdx, out vec3 dfdy)
 void main() {
     vUv = pos;
     vDiscardReg = discardRegion;
-    vTexIdx = gl_InstanceID;
+    vTexIdx = texIdx;
     vScale = scale;
 
     vec2 c = pos * scale + offset;

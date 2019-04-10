@@ -42,6 +42,7 @@ public:
 
     public:
         void setFormat(GLuint size, GLenum type, GLboolean normalized, GLuint relativeoffset);
+        void setIFormat(GLuint size, GLenum type, GLuint relativeoffset);
         void setBinding(BufferBinding const& binding);
         GLuint index() const;
 

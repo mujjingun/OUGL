@@ -13,9 +13,10 @@ namespace ou {
 
 struct InstanceAttrib {
     glm::vec2 offset;
-    float side;
+    short side;
     float scale;
     glm::vec4 discardRegion;
+    short texIdx;
 };
 
 RenderSystem::RenderSystem(const Parameters& params)
@@ -67,7 +68,7 @@ RenderSystem::RenderSystem(const Parameters& params)
     offsetAttr.setBinding(instanceBinding);
 
     VertexArray::Attribute sideAttr = m_vao.enableVertexAttrib(2);
-    sideAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, side));
+    sideAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, side));
     sideAttr.setBinding(instanceBinding);
 
     VertexArray::Attribute scaleAttr = m_vao.enableVertexAttrib(3);
@@ -77,6 +78,10 @@ RenderSystem::RenderSystem(const Parameters& params)
     VertexArray::Attribute discardRegionAttr = m_vao.enableVertexAttrib(4);
     discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
     discardRegionAttr.setBinding(instanceBinding);
+
+    VertexArray::Attribute texIdxAttr = m_vao.enableVertexAttrib(5);
+    texIdxAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, texIdx));
+    texIdxAttr.setBinding(instanceBinding);
 }
 
 void RenderSystem::render(ECSEngine& engine)
@@ -123,14 +128,12 @@ void RenderSystem::render(ECSEngine& engine)
         glm::i64vec3 surfaceOffset = centeredPos.pos - surfacePos;
         glm::dvec3 surfaceOffsetInRadiusUnits = glm::dvec3(surfaceOffset) / static_cast<double>(planet.planetRadius);
 
-        // set instance buffer data
-        std::vector<InstanceAttrib> instanceBuffer;
-
+        // instance buffer data for lod 0
+        std::vector<InstanceAttrib> lod0Attribs(6);
         for (int i = 0; i < 6; ++i) {
+            lod0Attribs[i] = { { 0, 0 }, short(i), 1, {}, short(i) };
             if (i == cubeCoords.side) {
-                instanceBuffer.push_back({ -cubeCoords.pos, static_cast<float>(i), 1, {} });
-            } else {
-                instanceBuffer.push_back({ { 0, 0 }, static_cast<float>(i), 1, {} });
+                lod0Attribs[i].offset = -cubeCoords.pos;
             }
         }
 
@@ -147,6 +150,7 @@ void RenderSystem::render(ECSEngine& engine)
 
         int lodUpdateIdx = -1;
 
+        std::vector<InstanceAttrib> detailedLodAttribs;
         for (int lod = 1; lod < levelsOfDetail; ++lod) {
             double scale = glm::exp2(static_cast<double>(-lod));
             double mod = scale * 2. * cellSize;
@@ -157,8 +161,7 @@ void RenderSystem::render(ECSEngine& engine)
             if (lodUpdateIdx < 0) {
                 if (lod >= int(planet.snapNums.size())) {
                     updateNow = true;
-                }
-                else if (planet.snapNums[lod] != snapNums) {
+                } else if (planet.snapNums[lod] != snapNums) {
                     updateNow = true;
                 }
             }
@@ -183,13 +186,13 @@ void RenderSystem::render(ECSEngine& engine)
 
             if (lod == 1) {
                 glm::dvec2 off = mod * glm::dvec2(snapNums);
-                instanceBuffer[cubeCoords.side].discardRegion = {
+                lod0Attribs[cubeCoords.side].discardRegion = {
                     -.5 + off.x, -.5 + off.y, .5 + off.x, .5 + off.y
                 };
             }
             if (lod > 1) {
                 glm::ivec2 r = snapNums - currentSnapNums.back() * std::int64_t(2);
-                instanceBuffer.back().discardRegion = {
+                detailedLodAttribs.back().discardRegion = {
                     -.5 + r.x * cellSize, -.5 + r.y * cellSize, .5 + r.x * cellSize, .5 + r.y * cellSize
                 };
             }
@@ -198,10 +201,11 @@ void RenderSystem::render(ECSEngine& engine)
 
             InstanceAttrib attrib;
             attrib.offset = offset;
-            attrib.side = cubeCoords.side;
+            attrib.side = short(cubeCoords.side);
             attrib.scale = static_cast<float>(scale);
             attrib.discardRegion = {};
-            instanceBuffer.push_back(attrib);
+            attrib.texIdx = short(5 + lod);
+            detailedLodAttribs.push_back(attrib);
 
             currentSnapNums.push_back(snapNums);
         }
@@ -266,7 +270,18 @@ void RenderSystem::render(ECSEngine& engine)
             glMemoryBarrier(GL_ALL_BARRIER_BITS);
         }
 
-        m_instanceAttrBuf.setData(instanceBuffer, GL_STATIC_DRAW);
+        std::vector<InstanceAttrib> instanceAttribs;
+        if (levelsOfDetail < 10) {
+            instanceAttribs = lod0Attribs;
+            std::copy(detailedLodAttribs.begin(), detailedLodAttribs.end(),
+                std::back_inserter(instanceAttribs));
+        } else {
+            instanceAttribs.push_back(lod0Attribs[cubeCoords.side]);
+            std::copy(detailedLodAttribs.end() - params.maxRenderLods, detailedLodAttribs.end(),
+                std::back_inserter(instanceAttribs));
+        }
+
+        m_instanceAttrBuf.setData(instanceAttribs, GL_STATIC_DRAW);
 
         glm::dmat4 viewMat = glm::lookAt({}, scene.lookDirection, scene.upDirection);
         double aspectRatio = static_cast<double>(scene.windowSize.x) / scene.windowSize.y;
@@ -287,7 +302,7 @@ void RenderSystem::render(ECSEngine& engine)
         m_planetShader.use();
         m_vao.use();
         planet.terrainTextures->useAsTexture(0);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceBuffer.size());
+        glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
     }
 }
 
