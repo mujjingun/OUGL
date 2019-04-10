@@ -3,6 +3,7 @@
 
 #include <list>
 #include <memory>
+#include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
@@ -21,16 +22,16 @@ private:
     };
 
     template <typename T>
-    struct Model final : Interface {
+    struct Model : Interface {
 
         Model(T x)
             : data(std::move(x))
         {
         }
 
-        Component clone() const { return data; }
+        std::type_index type() const override { return typeid(T); }
 
-        std::type_index type() const { return typeid(T); }
+        Component clone() const override { return data; }
 
         T data;
     };
@@ -94,7 +95,7 @@ class Entity {
 
 public:
     Entity() = default;
-    Entity(std::vector<Component>&& components);
+    explicit Entity(std::vector<Component>&& components);
 
     void added(ECSEngine* engine, ListIter iter);
 

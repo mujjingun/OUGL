@@ -1,6 +1,8 @@
+// clang-format off
 #include <GL/glew.h>
-
 #include <GL/freeglut.h>
+// clang-format on
+
 #include <iostream>
 #include <memory>
 #include <unordered_map>
@@ -27,30 +29,30 @@ public:
 
     static void keyboardDown(unsigned char key, int, int)
     {
-        scene->keyDown(key);
+        scene->input().keyDown(key);
     }
 
     static void keyboardUp(unsigned char key, int, int)
     {
-        scene->keyUp(key);
+        scene->input().keyUp(key);
     }
 
     static void mouseMove(int x, int y)
     {
-        scene->mouseMove(x, y);
+        scene->input().mouseMove(x, y);
     }
 
     static void mouseEvent(int button, int state, int, int)
     {
-        if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
-            scene->mouseClick();
-        }
+        scene->input().mouseClick(button, state);
     }
 
     static void mouseEntry(int state)
     {
         if (state == GLUT_ENTERED) {
-            scene->mouseEnter();
+            scene->input().mouseEnter();
+        } else if (state == GLUT_LEFT) {
+            scene->input().mouseLeft();
         }
     }
 
@@ -114,8 +116,7 @@ public:
             //          << " severity=" << sev_str
             //          << "\n";
 
-        }
-        else {
+        } else {
             std::cerr << "OpenGL Message: " << message
                       << " type=" << type_str
                       << " severity=" << sev_str

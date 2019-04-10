@@ -8,8 +8,7 @@ namespace ou {
 // This coordinate system is 3.6*10^19 light years across
 // The actual observable universe is 9.3*10^10 light years across
 // So it is enough.
-struct VoxelCoords
-{
+struct VoxelCoords {
     // approx. 1.94 light years across
     glm::i64vec3 voxel;
 
@@ -18,6 +17,8 @@ struct VoxelCoords
 
     VoxelCoords operator-(VoxelCoords const& other) const;
     VoxelCoords operator+(VoxelCoords const& other) const;
+    VoxelCoords& operator+=(VoxelCoords const& other);
+    VoxelCoords& operator-=(VoxelCoords const& other);
 };
 }
 

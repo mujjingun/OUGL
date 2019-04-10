@@ -12,8 +12,18 @@ VoxelCoords VoxelCoords::operator-(const VoxelCoords& other) const
     return { diffHigh, diffLow };
 }
 
-VoxelCoords VoxelCoords::operator+(const VoxelCoords &other) const
+VoxelCoords VoxelCoords::operator+(const VoxelCoords& other) const
 {
     return { voxel + other.voxel, pos + other.pos };
+}
+
+VoxelCoords& VoxelCoords::operator+=(const VoxelCoords& other)
+{
+    return *this = *this + other;
+}
+
+VoxelCoords& VoxelCoords::operator-=(const VoxelCoords& other)
+{
+    return *this = *this - other;
 }
 }

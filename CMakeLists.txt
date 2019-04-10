@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.7)
 project(OUGL)
+
 find_package(OpenGL REQUIRED)
 find_package(GLEW 2.0 REQUIRED)
 find_package(GLUT REQUIRED)
@@ -11,11 +12,20 @@ add_subdirectory(src/graphics)
 add_executable(OUGL
     src/main.cpp
     src/scene.cpp
-    src/planet.cpp
-    src/player.cpp
     src/voxelcoords.cpp
     src/parameters.cpp
     src/terrain.cpp
+    src/input.cpp
+    src/planetmath.cpp
+
+    src/entitysystems/camerasystem.cpp
+    src/entitysystems/rendersystem.cpp
+    src/entitysystems/inputsystem.cpp
+)
+
+set_target_properties(OUGL PROPERTIES
+    CXX_STANDARD 14
+    CXX_EXTENSIONS OFF
 )
 
 target_link_libraries(OUGL
@@ -26,7 +36,12 @@ target_link_libraries(OUGL
     ${GLUT_LIBRARIES}
     ${GLM_LIBRARIES}
 )
-include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
+target_include_directories(OUGL PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
+
+target_compile_definitions(OUGL PUBLIC
+    GLM_ENABLE_EXPERIMENTAL)
 
 # Copy shaders
 set(SHADER_FILES
