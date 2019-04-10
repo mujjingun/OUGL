@@ -20,6 +20,9 @@ class RenderSystem : public EntitySystem {
     Shader m_hdrShader;
     VertexArray m_hdrVao;
 
+    FrameBuffer m_hdrResolveFrameBuffer;
+    Texture m_hdrResolveColorTexture;
+
     // Planet
     Shader m_planetShader;
     Shader m_terrainGenerator;

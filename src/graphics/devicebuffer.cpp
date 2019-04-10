@@ -30,6 +30,11 @@ DeviceBuffer& DeviceBuffer::operator=(DeviceBuffer&& other) noexcept
     m_id = std::exchange(other.m_id, 0);
 }
 
+void DeviceBuffer::allocateStorage(GLsizeiptr size, GLenum usage)
+{
+    glNamedBufferData(m_id, size, nullptr, usage);
+}
+
 void DeviceBuffer::setData(RawBufferView data, GLenum usage)
 {
     glNamedBufferData(m_id, data.size(), data.data(), usage);

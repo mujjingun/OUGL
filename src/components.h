@@ -2,6 +2,7 @@
 #define COMPONENTS_H
 
 #include "texture.h"
+#include "devicebuffer.h"
 #include "voxelcoords.h"
 #include <glm/glm.hpp>
 #include <memory>
@@ -21,9 +22,11 @@ struct SceneComponent {
 struct PlanetComponent {
     std::int64_t planetRadius;
     VoxelCoords position;
-    float terrainFactor = 0.0005f;
+    float terrainFactor = 0.001f;
     std::shared_ptr<Texture> terrainTextures{};
-    std::vector<glm::i64vec2> snapNums;
+    std::vector<glm::i64vec2> snapNums{};
+    std::shared_ptr<DeviceBuffer> pbo{};
+    GLsync sync;
 };
 }
 

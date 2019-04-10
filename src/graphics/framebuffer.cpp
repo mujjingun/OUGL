@@ -1,8 +1,8 @@
 #include "framebuffer.h"
 
 #include "rawbufferview.h"
-#include "texture.h"
 #include "renderbuffer.h"
+#include "texture.h"
 
 #include <algorithm>
 
@@ -30,12 +30,12 @@ FrameBuffer::~FrameBuffer()
     glDeleteFramebuffers(1, &m_id);
 }
 
-FrameBuffer::FrameBuffer(FrameBuffer &&other) noexcept
+FrameBuffer::FrameBuffer(FrameBuffer&& other) noexcept
     : m_id(std::exchange(other.m_id, 0))
 {
 }
 
-FrameBuffer &FrameBuffer::operator=(FrameBuffer &&other) noexcept
+FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
 {
     glDeleteFramebuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
@@ -56,18 +56,23 @@ void FrameBuffer::use(GLenum target) const
     glBindFramebuffer(target, m_id);
 }
 
-void FrameBuffer::bindTexture(GLenum target, const Texture &texture, GLint mipLevel)
+void FrameBuffer::bindTexture(GLenum target, const Texture& texture, GLint mipLevel)
 {
     glNamedFramebufferTexture(m_id, target, texture.id(), mipLevel);
 }
 
-void FrameBuffer::bindRenderBuffer(GLenum target, const RenderBuffer &renderbuffer)
+void FrameBuffer::bindRenderBuffer(GLenum target, const RenderBuffer& renderbuffer)
 {
     glNamedFramebufferRenderbuffer(m_id, target, GL_RENDERBUFFER, renderbuffer.id());
 }
 
 bool FrameBuffer::isComplete() const
 {
-    return glCheckNamedFramebufferStatus(m_id, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    // cannot use DSA version because of a driver bug
+    GLint original;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &original);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_id);
+    return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glBindFramebuffer(GL_FRAMEBUFFER, original);
 }
 }

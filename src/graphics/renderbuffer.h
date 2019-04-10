@@ -19,6 +19,7 @@ public:
     RenderBuffer& operator=(RenderBuffer&& other) noexcept;
 
     void allocateStorage(GLenum internalformat, GLsizei width, GLsizei height);
+    void allocateMultisample(GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 
     GLuint id() const;
 };

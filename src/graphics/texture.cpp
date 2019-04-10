@@ -34,6 +34,28 @@ void Texture::setMagFilter(GLint param)
     glTextureParameteri(m_id, GL_TEXTURE_MAG_FILTER, param);
 }
 
+void Texture::allocateMultisample2D(GLsizei samples, GLenum internalformat,
+    GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
+{
+    // No DSA equivalent.
+    GLint original;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &original);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_id);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, internalformat, width, height, fixedsamplelocations);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, original);
+}
+
+void Texture::allocateMultisample3D(GLsizei samples, GLenum internalformat,
+    GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
+{
+    // No DSA equivalent.
+    GLint original;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &original);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, m_id);
+    glTexImage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, samples, internalformat, width, height, depth, fixedsamplelocations);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, original);
+}
+
 void Texture::allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height)
 {
     glTextureStorage2D(m_id, levels, internalFormat, width, height);
@@ -56,7 +78,12 @@ void Texture::uploadTexture3D(GLint level, GLint xoffset, GLint yoffset, GLint z
     glTextureSubImage3D(m_id, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
 }
 
-void Texture::useAsTexture(GLuint unit) const
+void Texture::use(GLenum target)
+{
+    glBindTexture(target, m_id);
+}
+
+void Texture::useAsTexture(GLuint unit)
 {
     glBindTextureUnit(unit, m_id);
 }
@@ -66,7 +93,7 @@ void Texture::useAsImage(GLuint unit, GLint level, GLboolean layered, GLint laye
     glBindImageTexture(unit, m_id, level, layered, layer, access, format);
 }
 
-void Texture::saveToImage(GLenum format, GLenum type, GLsizei width, GLsizei height, GLsizei depth, const char *filename) const
+void Texture::saveToImage(GLenum format, GLenum type, GLsizei width, GLsizei height, GLsizei depth, const char* filename) const
 {
     std::cout << width * height * depth * 4 / (1024 * 1024) << "MB" << std::endl;
 

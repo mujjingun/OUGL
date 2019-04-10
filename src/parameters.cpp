@@ -24,6 +24,7 @@ Parameters::Parameters()
     , terrainTextureCount(maxLods + 6)
     , playerHeight(1000)
     , maxRenderLods(10)
+    , msaaSamples(1)
 {
 }
 

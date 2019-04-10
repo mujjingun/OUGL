@@ -170,17 +170,17 @@ void RenderSystem::render(ECSEngine& engine)
                 // generate update info
                 lodUpdateIdx = 5 + lod;
 
-                std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << std::endl;
+                std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << "\n";
             } else {
                 // parent map pending update, update later
                 snapNums = planet.snapNums[lod];
 
                 if (lod >= int(planet.snapNums.size())) {
-                    std::cout << "delayed lod creation " << lod << std::endl;
+                    std::cout << "delayed lod creation " << lod << "\n";
                     break;
                 }
                 if (planet.snapNums[lod] != snapNums) {
-                    std::cout << "delayed update " << lod << std::endl;
+                    std::cout << "delayed update " << lod << "\n";
                 }
             }
 
@@ -270,6 +270,17 @@ void RenderSystem::render(ECSEngine& engine)
             glMemoryBarrier(GL_ALL_BARRIER_BITS);
         }
 
+        // read height value
+        if (!planet.pbo) {
+            planet.pbo = std::make_shared<DeviceBuffer>();
+            planet.pbo->allocateStorage(sizeof(GLfloat) * 1, GL_STREAM_COPY);
+        }
+
+        planet.pbo->use(GL_PIXEL_PACK_BUFFER);
+        glGetTextureSubImage(planet.terrainTextures->id(), 0, 0, 0, 0,
+            1, 1, 1, GL_RED, GL_FLOAT, sizeof(GLfloat) * 1, nullptr);
+        planet.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
         // select LODs to be rendered
         std::vector<InstanceAttrib> instanceAttribs;
         if (levelsOfDetail < 10) {
@@ -310,6 +321,7 @@ void RenderSystem::render(ECSEngine& engine)
 void RenderSystem::update(ECSEngine& engine, float)
 {
     SceneComponent& scene = engine.getOne<SceneComponent>();
+    Parameters const& params = engine.getOne<Parameters>();
 
     // window resize event
     if (scene.windowResized) {
@@ -319,25 +331,28 @@ void RenderSystem::update(ECSEngine& engine, float)
         glViewport(0, 0, scene.windowSize.x, scene.windowSize.y);
 
         // Build framebuffer
-        m_hdrFrameBuffer = FrameBuffer();
-
-        m_hdrColorTexture = Texture(GL_TEXTURE_2D);
-        m_hdrColorTexture.setMinFilter(GL_NEAREST);
-        m_hdrColorTexture.setMagFilter(GL_NEAREST);
-        m_hdrColorTexture.allocateStorage2D(1, GL_RGBA16F, scene.windowSize.x, scene.windowSize.y);
+        m_hdrColorTexture = Texture(GL_TEXTURE_2D_MULTISAMPLE);
+        m_hdrColorTexture.allocateMultisample2D(params.msaaSamples, GL_RGBA16F, scene.windowSize.x, scene.windowSize.y, GL_TRUE);
         m_hdrFrameBuffer.bindTexture(GL_COLOR_ATTACHMENT0, m_hdrColorTexture);
 
         m_hdrDepthRenderBuffer = RenderBuffer();
-        m_hdrDepthRenderBuffer.allocateStorage(GL_DEPTH24_STENCIL8, scene.windowSize.x, scene.windowSize.y);
+        m_hdrDepthRenderBuffer.allocateMultisample(params.msaaSamples, GL_DEPTH24_STENCIL8, scene.windowSize.x, scene.windowSize.y);
         m_hdrFrameBuffer.bindRenderBuffer(GL_DEPTH_STENCIL_ATTACHMENT, m_hdrDepthRenderBuffer);
 
         if (!m_hdrFrameBuffer.isComplete()) {
-            std::cerr << "Error building framebuffer\n";
+            std::cerr << "Error building hdr framebuffer\n";
+            throw std::runtime_error("Framebuffer is not complete");
+        }
+
+        m_hdrResolveColorTexture = Texture(GL_TEXTURE_2D);
+        m_hdrResolveColorTexture.allocateStorage2D(1, GL_RGBA16F, scene.windowSize.x, scene.windowSize.y);
+        m_hdrResolveFrameBuffer.bindTexture(GL_COLOR_ATTACHMENT0, m_hdrResolveColorTexture);
+
+        if (!m_hdrResolveFrameBuffer.isComplete()) {
+            std::cerr << "Error building hdr resolve framebuffer\n";
             throw std::runtime_error("Framebuffer is not complete");
         }
     }
-
-    Parameters params = engine.getOne<Parameters>();
 
     // Clear screen & framebuffer
     float clearColor[] = { 0, 0, 0, 0 };
@@ -350,6 +365,7 @@ void RenderSystem::update(ECSEngine& engine, float)
 
     // Render stuff to framebuffer
     m_hdrFrameBuffer.use(GL_FRAMEBUFFER);
+    //glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
 
     if (params.renderWireframe) {
@@ -360,16 +376,21 @@ void RenderSystem::update(ECSEngine& engine, float)
     render(engine);
 
     // apply HDR
-    FrameBuffer::defaultBuffer().use(GL_FRAMEBUFFER);
     glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_MULTISAMPLE);
+    glBlitNamedFramebuffer(m_hdrFrameBuffer.id(), m_hdrResolveFrameBuffer.id(),
+        0, 0, scene.windowSize.x, scene.windowSize.y,
+        0, 0, scene.windowSize.x, scene.windowSize.y,
+        GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
     if (params.renderWireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 
+    FrameBuffer::defaultBuffer().use(GL_FRAMEBUFFER);
     m_hdrVao.use();
     m_hdrShader.use();
-    m_hdrColorTexture.useAsTexture(0);
+    m_hdrResolveColorTexture.useAsTexture(0);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 }

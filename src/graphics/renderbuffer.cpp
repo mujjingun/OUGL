@@ -34,4 +34,9 @@ void RenderBuffer::allocateStorage(GLenum internalformat, GLsizei width, GLsizei
 {
     glNamedRenderbufferStorage(m_id, internalformat, width, height);
 }
+
+void RenderBuffer::allocateMultisample(GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
+{
+    glNamedRenderbufferStorageMultisample(m_id, samples, internalformat, width, height);
+}
 }

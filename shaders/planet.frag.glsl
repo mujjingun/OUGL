@@ -54,7 +54,7 @@ void main() {
     normal = normalize(cross(fx, fy));
     float slope = length(grad);
 
-    vec3 groundColor = mix(vec3(0.2, 0.14, 0.03), vec3(0.1, 0.6, 0.0), step(slope, 0.2));
+    vec3 groundColor = mix(vec3(0.2, 0.14, 0.03), vec3(0.1, 0.6, 0.0), step(slope, 1.0));
     color = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
 
     const vec3 lightDir = normalize(vec3(-1, 0, 1));
