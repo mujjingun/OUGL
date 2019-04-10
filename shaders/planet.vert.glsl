@@ -134,9 +134,9 @@ void main() {
     gl_Position = viewProjMat * vec4(vPosition, 1);
 
     // logarithmic depth
-    const float C = 1;
+    const float C = 10000;
     const float far = 10000.0;
     const float FC = 1.0 / log(far * C + 1);
     vLogz = log(gl_Position.w * C + 1) * FC;
-    gl_Position.z = vLogz * gl_Position.w;
+    gl_Position.z = (2 * vLogz - 1) * gl_Position.w;
 }

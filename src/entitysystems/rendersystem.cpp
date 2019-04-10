@@ -270,6 +270,7 @@ void RenderSystem::render(ECSEngine& engine)
             glMemoryBarrier(GL_ALL_BARRIER_BITS);
         }
 
+        // select LODs to be rendered
         std::vector<InstanceAttrib> instanceAttribs;
         if (levelsOfDetail < 10) {
             instanceAttribs = lod0Attribs;
