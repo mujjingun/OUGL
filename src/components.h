@@ -4,6 +4,7 @@
 #include "texture.h"
 #include "devicebuffer.h"
 #include "voxelcoords.h"
+#include "circularbuffer.h"
 #include <glm/glm.hpp>
 #include <memory>
 #include <vector>
@@ -19,14 +20,18 @@ struct SceneComponent {
     glm::dvec3 upDirection = { 0, 1, 0 };
 };
 
+struct PBOSync {
+    DeviceBuffer buf;
+    GLsync sync;
+};
+
 struct PlanetComponent {
     std::int64_t planetRadius;
     VoxelCoords position;
     float terrainFactor = 0.001f;
     std::shared_ptr<Texture> terrainTextures{};
     std::vector<glm::i64vec2> snapNums{};
-    std::shared_ptr<DeviceBuffer> pbo{};
-    GLsync sync = nullptr;
+    std::shared_ptr<CircularBuffer<PBOSync>> pbos{};
     std::int64_t playerTerrainHeight = 0.0f;
 };
 }

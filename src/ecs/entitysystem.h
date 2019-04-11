@@ -1,5 +1,5 @@
-#ifndef SYSTEM_H
-#define SYSTEM_H
+#ifndef ENTITYSYSTEM_H
+#define ENTITYSYSTEM_H
 
 namespace ou {
 
@@ -13,4 +13,4 @@ public:
 };
 }
 
-#endif // SYSTEM_H
+#endif // ENTITYSYSTEM_H

@@ -26,7 +26,7 @@ void CameraSystem::update(ECSEngine& engine, float deltaTime)
 
     const PlanetComponent* nearest = [&] {
         double minDistance = std::numeric_limits<double>::infinity();
-        const PlanetComponent* nearest = nullptr;
+        const PlanetComponent* result = nullptr;
 
         for (Entity& ent : engine.iterate<PlanetComponent>()) {
             PlanetComponent& planet = ent.get<PlanetComponent>();
@@ -40,11 +40,11 @@ void CameraSystem::update(ECSEngine& engine, float deltaTime)
             double dist = glm::length(glm::dvec3(diff.pos));
             if (dist < minDistance) {
                 minDistance = dist;
-                nearest = &planet;
+                result = &planet;
             }
         }
 
-        return nearest;
+        return result;
     }();
 
     std::int64_t altitude = 0;

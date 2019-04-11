@@ -34,7 +34,7 @@ void InputSystem::update(ECSEngine& engine, float deltaTime)
     input.m_logicalMousePos += input.m_smoothedMouseDelta;
 
     // capture mouse
-    if (input.m_mouseCaptured) {
+    if (!input.m_mouseInvalidated && input.m_mouseCaptured) {
         if (input.m_realMousePos.x > scene.windowSize.x * .6
             || input.m_realMousePos.x < scene.windowSize.x * .4
             || input.m_realMousePos.y > scene.windowSize.y * .6

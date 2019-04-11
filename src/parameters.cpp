@@ -1,6 +1,6 @@
 #include "parameters.h"
 
-#define LOD_DEBUG 1
+#define LOD_DEBUG 0
 
 namespace ou {
 
@@ -25,6 +25,7 @@ Parameters::Parameters()
     , playerHeight(1000)
     , maxRenderLods(10)
     , msaaSamples(1)
+    , numPbos(4)
 {
 }
 

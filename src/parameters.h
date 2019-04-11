@@ -18,6 +18,7 @@ struct Parameters {
     int playerHeight;
     int maxRenderLods;
     int msaaSamples;
+    int numPbos;
 };
 }
 

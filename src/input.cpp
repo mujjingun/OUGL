@@ -43,7 +43,9 @@ void Input::mouseClick(int button, int event)
 void Input::mouseMove(int x, int y)
 {
     m_realMousePos = { x, y };
-    if (m_mouseInvalidated) {
+
+    auto diff = glm::abs(m_realMousePos - m_lastRealMousePos);
+    if (m_mouseInvalidated && (diff.x > 50 || diff.y > 50)) {
         m_mouseInvalidated = false;
         m_lastRealMousePos = m_realMousePos;
     }

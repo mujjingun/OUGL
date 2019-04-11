@@ -142,7 +142,7 @@ void RenderSystem::render(ECSEngine& engine)
         double normalizedDistance = distance / static_cast<double>(planet.planetRadius);
 
         const int logDistance = std::ilogb(normalizedDistance);
-        const int levelsOfDetail = glm::clamp(params.zoomFactor - logDistance, 1, params.maxLods - 1);
+        const int levelsOfDetail = glm::clamp(params.zoomFactor - logDistance, 1, params.maxLods + 1);
 
         std::vector<glm::i64vec2> currentSnapNums = { { 0, 0 } };
 
@@ -171,17 +171,17 @@ void RenderSystem::render(ECSEngine& engine)
                 // generate update info
                 lodUpdateIdx = 5 + lod;
 
-                std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << "\n";
+                std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << std::endl;
             } else {
                 // parent map pending update, update later
                 snapNums = planet.snapNums[lod];
 
                 if (lod >= int(planet.snapNums.size())) {
-                    std::cout << "delayed lod creation " << lod << "\n";
+                    std::cout << "delayed lod creation " << lod << std::endl;
                     break;
                 }
                 if (planet.snapNums[lod] != snapNums) {
-                    std::cout << "delayed update " << lod << "\n";
+                    std::cout << "delayed update " << lod << std::endl;
                 }
             }
 
@@ -254,9 +254,9 @@ void RenderSystem::render(ECSEngine& engine)
             m_lodUboBuf.setData(lodDataList, GL_DYNAMIC_DRAW);
             m_terrainGenerator.setUniform(0, cubeCoords.side);
 
-            auto derivs = derivatives(updateCenter, cubeCoords.side);
-            m_terrainGenerator.setUniform(1, glm::vec3(derivs.fx));
-            m_terrainGenerator.setUniform(2, glm::vec3(derivs.fy));
+            auto updateCenterDrivs = derivatives(updateCenter, cubeCoords.side);
+            m_terrainGenerator.setUniform(1, glm::vec3(updateCenterDrivs.fx));
+            m_terrainGenerator.setUniform(2, glm::vec3(updateCenterDrivs.fy));
 
             m_terrainGenerator.setUniform(3, lodUpdateIdx);
 
@@ -284,35 +284,40 @@ void RenderSystem::render(ECSEngine& engine)
         }
 
         // initialize pbo
-        if (!planet.pbo) {
-            planet.pbo = std::make_shared<DeviceBuffer>();
-            planet.pbo->allocateStorage(sizeof(GLfloat) * 1, GL_STREAM_COPY);
+        if (!planet.pbos) {
+            planet.pbos = std::make_shared<CircularBuffer<PBOSync>>(params.numPbos);
+            for (PBOSync& pbo : *planet.pbos) {
+                pbo.buf.allocateStorage(sizeof(GLfloat) * 1, GL_STREAM_COPY);
+            }
         }
 
-        // read height value
-        if (planet.sync) {
-            GLenum pboStatus = glClientWaitSync(planet.sync, 0, 0);
-            if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
-                glDeleteSync(planet.sync);
-                planet.sync = nullptr;
+        if (planet.pbos->count()) {
+            PBOSync &pbo = planet.pbos->pop();
 
-                GLfloat* data = static_cast<GLfloat*>(planet.pbo->map(GL_READ_ONLY));
+            GLenum pboStatus = glClientWaitSync(pbo.sync, 0, 0);
+            if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
+                glDeleteSync(pbo.sync);
+
+                GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
                 float height = data[0];
-                planet.pbo->unmap();
+                pbo.buf.unmap();
 
                 float adjustedHeight = glm::max(height, 0.0f) * planet.terrainFactor;
                 planet.playerTerrainHeight = std::int64_t(adjustedHeight * planet.planetRadius);
             }
         }
 
-        if (higherLodAttribs.size()) {
+        // read height value
+        if (planet.pbos->available() && higherLodAttribs.size()) {
+            PBOSync &pbo = planet.pbos->push();
+
             InstanceAttrib hLod = instanceAttribs.back();
             glm::vec2 coords = (hLod.offset + 1.0f) * 0.5f * float(params.terrainTextureSize);
             glm::ivec2 iCoords = glm::clamp(glm::ivec2(glm::round(coords)), 0, params.terrainTextureSize);
-            planet.pbo->copyTexture(*planet.terrainTextures, 0,
+            pbo.buf.copyTexture(*planet.terrainTextures, 0,
                 { iCoords, hLod.texIdx },
                 { 1, 1, 1 }, GL_RED, GL_FLOAT, sizeof(GLfloat) * 1, 0);
-            planet.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+            pbo.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
         }
 
         // upload instance attribs
