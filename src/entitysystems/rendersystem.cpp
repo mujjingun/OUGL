@@ -7,6 +7,7 @@
 
 #include <GL/glew.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <iostream>
 
 namespace ou {
@@ -137,7 +138,7 @@ void RenderSystem::render(ECSEngine& engine)
             }
         }
 
-        double distance = glm::length(glm::dvec3(centeredPos.pos)) - planet.planetRadius;
+        double distance = glm::length(glm::dvec3(centeredPos.pos)) - planet.planetRadius - planet.playerTerrainHeight;
         double normalizedDistance = distance / static_cast<double>(planet.planetRadius);
 
         const int logDistance = std::ilogb(normalizedDistance);
@@ -150,7 +151,7 @@ void RenderSystem::render(ECSEngine& engine)
 
         int lodUpdateIdx = -1;
 
-        std::vector<InstanceAttrib> detailedLodAttribs;
+        std::vector<InstanceAttrib> higherLodAttribs;
         for (int lod = 1; lod < levelsOfDetail; ++lod) {
             double scale = glm::exp2(static_cast<double>(-lod));
             double mod = scale * 2. * cellSize;
@@ -192,7 +193,7 @@ void RenderSystem::render(ECSEngine& engine)
             }
             if (lod > 1) {
                 glm::ivec2 r = snapNums - currentSnapNums.back() * std::int64_t(2);
-                detailedLodAttribs.back().discardRegion = {
+                higherLodAttribs.back().discardRegion = {
                     -.5 + r.x * cellSize, -.5 + r.y * cellSize, .5 + r.x * cellSize, .5 + r.y * cellSize
                 };
             }
@@ -205,7 +206,7 @@ void RenderSystem::render(ECSEngine& engine)
             attrib.scale = static_cast<float>(scale);
             attrib.discardRegion = {};
             attrib.texIdx = short(5 + lod);
-            detailedLodAttribs.push_back(attrib);
+            higherLodAttribs.push_back(attrib);
 
             currentSnapNums.push_back(snapNums);
         }
@@ -270,34 +271,57 @@ void RenderSystem::render(ECSEngine& engine)
             glMemoryBarrier(GL_ALL_BARRIER_BITS);
         }
 
-        // read height value
+        // select LODs to be rendered
+        std::vector<InstanceAttrib> instanceAttribs;
+        if (levelsOfDetail < 10) {
+            instanceAttribs = lod0Attribs;
+            std::copy(higherLodAttribs.begin(), higherLodAttribs.end(),
+                std::back_inserter(instanceAttribs));
+        } else {
+            instanceAttribs.push_back(lod0Attribs[cubeCoords.side]);
+            std::copy(higherLodAttribs.end() - params.maxRenderLods, higherLodAttribs.end(),
+                std::back_inserter(instanceAttribs));
+        }
+
+        // initialize pbo
         if (!planet.pbo) {
             planet.pbo = std::make_shared<DeviceBuffer>();
             planet.pbo->allocateStorage(sizeof(GLfloat) * 1, GL_STREAM_COPY);
         }
 
-        planet.pbo->use(GL_PIXEL_PACK_BUFFER);
-        glGetTextureSubImage(planet.terrainTextures->id(), 0, 0, 0, 0,
-            1, 1, 1, GL_RED, GL_FLOAT, sizeof(GLfloat) * 1, nullptr);
-        planet.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        // read height value
+        if (planet.sync) {
+            GLenum pboStatus = glClientWaitSync(planet.sync, 0, 0);
+            if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
+                glDeleteSync(planet.sync);
+                planet.sync = nullptr;
 
-        // select LODs to be rendered
-        std::vector<InstanceAttrib> instanceAttribs;
-        if (levelsOfDetail < 10) {
-            instanceAttribs = lod0Attribs;
-            std::copy(detailedLodAttribs.begin(), detailedLodAttribs.end(),
-                std::back_inserter(instanceAttribs));
-        } else {
-            instanceAttribs.push_back(lod0Attribs[cubeCoords.side]);
-            std::copy(detailedLodAttribs.end() - params.maxRenderLods, detailedLodAttribs.end(),
-                std::back_inserter(instanceAttribs));
+                GLfloat* data = static_cast<GLfloat*>(planet.pbo->map(GL_READ_ONLY));
+                float height = data[0];
+                planet.pbo->unmap();
+
+                float adjustedHeight = glm::max(height, 0.0f) * planet.terrainFactor;
+                planet.playerTerrainHeight = std::int64_t(adjustedHeight * planet.planetRadius);
+            }
         }
 
+        if (higherLodAttribs.size()) {
+            InstanceAttrib hLod = instanceAttribs.back();
+            glm::vec2 coords = (hLod.offset + 1.0f) * 0.5f * float(params.terrainTextureSize);
+            glm::ivec2 iCoords = glm::clamp(glm::ivec2(glm::round(coords)), 0, params.terrainTextureSize);
+            planet.pbo->copyTexture(*planet.terrainTextures, 0,
+                { iCoords, hLod.texIdx },
+                { 1, 1, 1 }, GL_RED, GL_FLOAT, sizeof(GLfloat) * 1, 0);
+            planet.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        }
+
+        // upload instance attribs
         m_instanceAttrBuf.setData(instanceAttribs, GL_STATIC_DRAW);
 
+        // build proj view matrix
         glm::dmat4 viewMat = glm::lookAt({}, scene.lookDirection, scene.upDirection);
         double aspectRatio = static_cast<double>(scene.windowSize.x) / scene.windowSize.y;
-        glm::dmat4 projMat = glm::perspective(glm::radians(60.0), aspectRatio, 0.1, 10.0);
+        glm::dmat4 projMat = glm::perspective(glm::radians(90.0), aspectRatio, 0.1, 10.0);
 
         // set uniforms
         m_planetShader.setUniform(0, projMat * viewMat);

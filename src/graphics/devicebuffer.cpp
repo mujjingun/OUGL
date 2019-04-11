@@ -1,4 +1,5 @@
 #include "devicebuffer.h"
+#include "texture.h"
 
 #include <algorithm>
 
@@ -53,5 +54,25 @@ void DeviceBuffer::use(GLenum target, GLuint index)
 void DeviceBuffer::use(GLenum target)
 {
     glBindBuffer(target, m_id);
+}
+
+void* DeviceBuffer::map(GLenum access)
+{
+    return glMapNamedBuffer(m_id, access);
+}
+
+void DeviceBuffer::unmap()
+{
+    glUnmapNamedBuffer(m_id);
+}
+
+void DeviceBuffer::copyTexture(Texture& tex, GLint level, glm::ivec3 offset, glm::uvec3 size, GLenum format, GLenum type, GLsizei bufSize, GLsizeiptr bufOffset)
+{
+    int original;
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &original);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, m_id);
+    glGetTextureSubImage(tex.id(), level, offset.x, offset.y, offset.z,
+        size.x, size.y, size.z, format, type, bufSize, reinterpret_cast<void*>(bufOffset));
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, original);
 }
 }

@@ -26,7 +26,8 @@ struct PlanetComponent {
     std::shared_ptr<Texture> terrainTextures{};
     std::vector<glm::i64vec2> snapNums{};
     std::shared_ptr<DeviceBuffer> pbo{};
-    GLsync sync;
+    GLsync sync = nullptr;
+    std::int64_t playerTerrainHeight = 0.0f;
 };
 }
 
