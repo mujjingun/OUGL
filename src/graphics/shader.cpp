@@ -188,6 +188,7 @@ Shader& Shader::operator=(Shader&& other) noexcept
 {
     glDeleteProgram(m_id);
     m_id = std::exchange(other.m_id, 0);
+    return *this;
 }
 
 void Shader::setUniform(GLint location, int value)

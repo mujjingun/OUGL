@@ -53,6 +53,7 @@ public:
     Component& operator=(Component const& other)
     {
         m_self = other.m_self->clone().m_self;
+        return *this;
     }
 
     Component(Component&&) noexcept = default;

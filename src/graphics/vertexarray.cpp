@@ -30,6 +30,7 @@ VertexArray& VertexArray::operator=(VertexArray&& other) noexcept
 {
     glDeleteVertexArrays(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
+    return *this;
 }
 
 VertexArray::Attribute VertexArray::enableVertexAttrib(GLuint attribindex)

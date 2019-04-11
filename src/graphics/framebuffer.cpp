@@ -39,6 +39,7 @@ FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
 {
     glDeleteFramebuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
+    return *this;
 }
 
 FrameBuffer& FrameBuffer::defaultBuffer()

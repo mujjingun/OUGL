@@ -28,6 +28,7 @@ RenderBuffer& RenderBuffer::operator=(RenderBuffer&& other) noexcept
 {
     glDeleteRenderbuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
+    return *this;
 }
 
 void RenderBuffer::allocateStorage(GLenum internalformat, GLsizei width, GLsizei height)

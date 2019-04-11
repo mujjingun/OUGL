@@ -61,8 +61,8 @@ public:
         scene->reshapeWindow(width, height);
     }
 
-    static void openglDebugCallback(GLenum source, GLenum type, GLenum id, GLenum severity,
-        GLsizei length, const GLchar* message, const void* userParam)
+    static void GLAPIENTRY openglDebugCallback(GLenum source, GLenum type, GLenum id, GLenum severity,
+        GLsizei, const GLchar* message, const void*)
     {
         const char* type_str;
         switch (type) {
@@ -118,6 +118,8 @@ public:
 
         } else {
             std::cerr << "OpenGL Message: " << message
+                      << " source=" << source
+                      << " id=" << id
                       << " type=" << type_str
                       << " severity=" << sev_str
                       << "\n";

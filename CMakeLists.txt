@@ -43,6 +43,9 @@ target_include_directories(OUGL PUBLIC
 target_compile_definitions(OUGL PUBLIC
     GLM_ENABLE_EXPERIMENTAL)
 
+target_compile_options(OUGL PRIVATE
+    -Wall -Wextra -pedantic -Werror)
+
 # Copy shaders
 set(SHADER_FILES
     shaders/planet.vert.glsl

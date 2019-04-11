@@ -29,6 +29,7 @@ DeviceBuffer& DeviceBuffer::operator=(DeviceBuffer&& other) noexcept
 {
     glDeleteBuffers(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
+    return *this;
 }
 
 void DeviceBuffer::allocateStorage(GLsizeiptr size, GLenum usage)

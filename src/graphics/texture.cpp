@@ -140,5 +140,6 @@ Texture& Texture::operator=(Texture&& other) noexcept
 {
     glDeleteTextures(1, &m_id);
     m_id = std::exchange(other.m_id, 0);
+    return *this;
 }
 }
