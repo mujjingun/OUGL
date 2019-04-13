@@ -14,11 +14,11 @@ struct Parameters {
     bool renderWireframe;
     double anglePerPixel;
     int terrainTextureSize;
-    int terrainTextureCount;
     int playerHeight;
     int maxRenderLods;
     int msaaSamples;
     int numPbos;
+    int terrainTextureCount;
 };
 }
 

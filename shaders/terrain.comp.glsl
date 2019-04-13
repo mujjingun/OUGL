@@ -220,7 +220,7 @@ void main() {
         vec2 xy = uv * 2. - 1.;
         vec3 pos = spherizePoint(xy, pixel_coords.z);
 
-        float height = ridgeWithOctaves(pos * 2.0, 20) - 1.0;
+        float height = (ridgeWithOctaves(pos * 2.0, 20) - 1.0);
         vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
 
         // output to a specific pixel in the image
@@ -240,7 +240,7 @@ void main() {
 
         // generate heightmap by perlin noise
         vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
-        pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 8;
+        pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 4;
         //pixel.x = xy.x + xy.y;
 
         // output to a specific pixel in the image

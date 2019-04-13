@@ -2,6 +2,7 @@
 #include "components.h"
 #include "ecsengine.h"
 #include "framebuffer.h"
+#include "input.h"
 #include "parameters.h"
 #include "planetmath.h"
 
@@ -191,7 +192,7 @@ void RenderSystem::render(ECSEngine& engine)
                     -.5 + off.x, -.5 + off.y, .5 + off.x, .5 + off.y
                 };
             }
-            if (lod > 1) {
+            else if (lod > 1) {
                 glm::ivec2 r = snapNums - currentSnapNums.back() * std::int64_t(2);
                 higherLodAttribs.back().discardRegion = {
                     -.5 + r.x * cellSize, -.5 + r.y * cellSize, .5 + r.x * cellSize, .5 + r.y * cellSize
@@ -292,24 +293,24 @@ void RenderSystem::render(ECSEngine& engine)
         }
 
         if (planet.pbos->count()) {
-            PBOSync &pbo = planet.pbos->pop();
+            PBOSync& pbo = planet.pbos->pop();
 
             GLenum pboStatus = glClientWaitSync(pbo.sync, 0, 0);
             if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
                 glDeleteSync(pbo.sync);
 
                 GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
-                float height = data[0];
+                double height = static_cast<double>(data[0]);
                 pbo.buf.unmap();
 
-                float adjustedHeight = glm::max(height, 0.0f) * planet.terrainFactor;
+                double adjustedHeight = glm::max(height, 0.0) * planet.terrainFactor;
                 planet.playerTerrainHeight = std::int64_t(adjustedHeight * planet.planetRadius);
             }
         }
 
         // read height value
         if (planet.pbos->available() && higherLodAttribs.size()) {
-            PBOSync &pbo = planet.pbos->push();
+            PBOSync& pbo = planet.pbos->push();
 
             InstanceAttrib hLod = instanceAttribs.back();
             glm::vec2 coords = (hLod.offset + 1.0f) * 0.5f * float(params.terrainTextureSize);
@@ -338,12 +339,18 @@ void RenderSystem::render(ECSEngine& engine)
         m_planetShader.setUniform(6, glm::vec3(curvs.fyy));
         m_planetShader.setUniform(7, cubeCoords.side);
         m_planetShader.setUniform(8, glm::vec3(surfaceOffsetInRadiusUnits));
-        m_planetShader.setUniform(9, planet.terrainFactor);
+        m_planetShader.setUniform(9, static_cast<float>(planet.terrainFactor));
 
         m_planetShader.use();
         m_vao.use();
         planet.terrainTextures->useAsTexture(0);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
+
+        Input const& input = engine.getOne<Input>();
+        if (input.isKeyPressed('m')) {
+            planet.terrainTextures->saveToImage(GL_RED, GL_FLOAT,
+                params.terrainTextureSize, params.terrainTextureSize, params.terrainTextureCount, "tex");
+        }
     }
 }
 

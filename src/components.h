@@ -28,7 +28,8 @@ struct PBOSync {
 struct PlanetComponent {
     std::int64_t planetRadius;
     VoxelCoords position;
-    float terrainFactor = 0.001f;
+    double terrainFactor = 0.000012;
+    std::shared_ptr<Texture> lod0Textures{};
     std::shared_ptr<Texture> terrainTextures{};
     std::vector<glm::i64vec2> snapNums{};
     std::shared_ptr<CircularBuffer<PBOSync>> pbos{};

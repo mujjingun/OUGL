@@ -21,11 +21,11 @@ Parameters::Parameters()
 #endif
     , anglePerPixel(0.5)
     , terrainTextureSize(1024)
-    , terrainTextureCount(maxLods + 6)
     , playerHeight(1000)
     , maxRenderLods(10)
     , msaaSamples(1)
     , numPbos(4)
+    , terrainTextureCount(maxLods + 6)
 {
 }
 
