@@ -53,6 +53,7 @@ set(SHADER_FILES
     shaders/hdr.vert.glsl
     shaders/hdr.frag.glsl
     shaders/terrain.comp.glsl
+    shaders/terrain2.comp.glsl
 )
 
 foreach(SHADER_FILE ${SHADER_FILES})

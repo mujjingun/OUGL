@@ -2,6 +2,28 @@
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 layout(r32f, binding = 0) uniform image2DArray image;
+layout(binding = 1) uniform sampler2DArray tex;
+
+struct Lod
+{
+    vec2 align;
+    vec2 pDiff;
+    float scale;
+    int imgIdx;
+    int parentIdx;
+};
+
+layout(std140, binding = 1) uniform LodData
+{
+    Lod uLods[36];
+};
+
+// side == -1: z = side
+// side >= 0: z = lod
+layout(location = 0) uniform int side;
+layout(location = 1) uniform vec3 xJac;
+layout(location = 2) uniform vec3 yJac;
+layout(location = 3) uniform int uIdx;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 
@@ -146,6 +168,45 @@ vec3 spherizePoint(vec2 q, int side)
     );
 }
 
+// cubic filtering
+vec4 cubic(float v)
+{
+    vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
+    vec4 s = n * n * n;
+    float x = s.x;
+    float y = s.y - 4.0 * s.x;
+    float z = s.z - 4.0 * s.y + 6.0 * s.x;
+    float w = 6.0 - x - y - z;
+    return vec4(x, y, z, w);
+}
+
+vec4 filt(vec2 texcoord, vec2 texscale, int idx)
+{
+    float fx = fract(texcoord.x);
+    float fy = fract(texcoord.y);
+    texcoord.x -= fx;
+    texcoord.y -= fy;
+
+    vec4 xcubic = cubic(fx);
+    vec4 ycubic = cubic(fy);
+
+    vec4 c = vec4(texcoord.x - 0.5, texcoord.x + 1.5, texcoord.y - 0.5, texcoord.y + 1.5);
+    vec4 s = vec4(xcubic.x + xcubic.y, xcubic.z + xcubic.w, ycubic.x + ycubic.y, ycubic.z + ycubic.w);
+    vec4 offset = c + vec4(xcubic.y, xcubic.w, ycubic.y, ycubic.w) / s;
+
+    vec4 sample0 = texture(tex, vec3(vec2(offset.x, offset.z) * texscale, idx));
+    vec4 sample1 = texture(tex, vec3(vec2(offset.y, offset.z) * texscale, idx));
+    vec4 sample2 = texture(tex, vec3(vec2(offset.x, offset.w) * texscale, idx));
+    vec4 sample3 = texture(tex, vec3(vec2(offset.y, offset.w) * texscale, idx));
+
+    float sx = s.x / (s.x + s.y);
+    float sy = s.z / (s.z + s.w);
+
+    return mix(
+        mix(sample3, sample2, sx),
+        mix(sample1, sample0, sx), sy);
+}
+
 #define MARGIN 2
 
 void main() {
@@ -153,14 +214,23 @@ void main() {
     vec2 imgSize = vec2(imageSize(image).xy);
     vec2 t = 1 / imgSize;
 
-    // map [MARGIN, N-1-MARGIN] -> [1/(2N), 1-1/(2N)]
-    vec2 uv = mix(t * .5, 1 - t * .5, vec2(pixel_coords.xy - MARGIN) / (imgSize - (MARGIN * 2 + 1)));
-    vec2 xy = uv * 2. - 1.;
-    vec3 pos = spherizePoint(xy, pixel_coords.z);
+    Lod lod = uLods[uIdx];
 
-    float height = (ridgeWithOctaves(pos * 2.0, 20) - 1.0);
-    vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
+    // map [0, N-1] -> [1/(2N), 1-1/(2N)]
+    vec2 uv = vec2(pixel_coords.xy) / imgSize;
+
+    // bicubic filter upsample parent
+    Lod plod = uLods[lod.parentIdx];
+    vec2 pOffset = lod.pDiff * (1 - (MARGIN * 2 + 1) * t);
+    vec2 pUv = uv / 2 + .25 + pOffset;
+    vec4 pixel = filt(pUv * imgSize, 1 / imgSize, plod.imgIdx);
+
+    // generate heightmap by perlin noise
+    vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
+    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 4;
+    //pixel.x = xy.x + xy.y;
 
     // output to a specific pixel in the image
+    pixel_coords.z = lod.imgIdx;
     imageStore(image, pixel_coords, pixel);
 }

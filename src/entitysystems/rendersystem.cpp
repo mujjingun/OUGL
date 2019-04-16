@@ -25,6 +25,7 @@ RenderSystem::RenderSystem(const Parameters& params)
     : m_hdrShader("shaders/hdr.vert.glsl", "shaders/hdr.frag.glsl")
     , m_planetShader("shaders/planet.vert.glsl", "shaders/planet.frag.glsl")
     , m_terrainGenerator("shaders/terrain.comp.glsl")
+    , m_terrainDetailGenerator("shaders/terrain2.comp.glsl")
 {
     glEnable(GL_CULL_FACE);
 
@@ -111,9 +112,6 @@ void RenderSystem::render(ECSEngine& engine)
             planet.terrainTextures->allocateStoarge3D(1, GL_R32F,
                 params.terrainTextureSize, params.terrainTextureSize, // width, height
                 params.terrainTextureCount); // array size
-
-            // mode/side
-            m_terrainGenerator.setUniform(0, -1);
 
             m_terrainGenerator.use();
             planet.terrainTextures->useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
@@ -253,16 +251,16 @@ void RenderSystem::render(ECSEngine& engine)
             }
 
             m_lodUboBuf.setData(lodDataList, GL_DYNAMIC_DRAW);
-            m_terrainGenerator.setUniform(0, cubeCoords.side);
+            m_terrainDetailGenerator.setUniform(0, cubeCoords.side);
 
             auto updateCenterDrivs = derivatives(updateCenter, cubeCoords.side);
-            m_terrainGenerator.setUniform(1, glm::vec3(updateCenterDrivs.fx));
-            m_terrainGenerator.setUniform(2, glm::vec3(updateCenterDrivs.fy));
+            m_terrainDetailGenerator.setUniform(1, glm::vec3(updateCenterDrivs.fx));
+            m_terrainDetailGenerator.setUniform(2, glm::vec3(updateCenterDrivs.fy));
 
-            m_terrainGenerator.setUniform(3, lodUpdateIdx);
+            m_terrainDetailGenerator.setUniform(3, lodUpdateIdx);
 
             // write to texture
-            m_terrainGenerator.use();
+            m_terrainDetailGenerator.use();
             planet.terrainTextures->useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
             planet.terrainTextures->useAsTexture(1);
             m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);

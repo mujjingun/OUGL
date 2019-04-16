@@ -25,7 +25,7 @@ class RenderSystem : public EntitySystem {
 
     // Planet
     Shader m_planetShader;
-    Shader m_terrainGenerator;
+    Shader m_terrainGenerator, m_terrainDetailGenerator;
     VertexArray m_vao;
     DeviceBuffer m_gridBuf, m_instanceAttrBuf;
     std::size_t m_vertexCount;
