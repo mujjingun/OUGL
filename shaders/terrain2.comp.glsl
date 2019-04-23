@@ -191,13 +191,13 @@ vec4 filt(vec2 texcoord, vec2 texscale, int idx)
     vec4 ycubic = cubic(fy);
 
     vec4 c = vec4(texcoord.x - 0.5, texcoord.x + 1.5, texcoord.y - 0.5, texcoord.y + 1.5);
-    vec4 s = vec4(xcubic.x + xcubic.y, xcubic.z + xcubic.w, ycubic.x + ycubic.y, ycubic.z + ycubic.w);
-    vec4 offset = c + vec4(xcubic.y, xcubic.w, ycubic.y, ycubic.w) / s;
+    vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
+    vec4 offset = c + vec4(xcubic.yw, ycubic.yw) / s;
 
-    vec4 sample0 = texture(tex, vec3(vec2(offset.x, offset.z) * texscale, idx));
-    vec4 sample1 = texture(tex, vec3(vec2(offset.y, offset.z) * texscale, idx));
-    vec4 sample2 = texture(tex, vec3(vec2(offset.x, offset.w) * texscale, idx));
-    vec4 sample3 = texture(tex, vec3(vec2(offset.y, offset.w) * texscale, idx));
+    vec4 sample0 = texture(tex, vec3(offset.xz * texscale, idx));
+    vec4 sample1 = texture(tex, vec3(offset.yz * texscale, idx));
+    vec4 sample2 = texture(tex, vec3(offset.xw * texscale, idx));
+    vec4 sample3 = texture(tex, vec3(offset.yw * texscale, idx));
 
     float sx = s.x / (s.x + s.y);
     float sy = s.z / (s.z + s.w);
@@ -227,7 +227,7 @@ void main() {
 
     // generate heightmap by perlin noise
     vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
-    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 4;
+    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 8;
     //pixel.x = xy.x + xy.y;
 
     // output to a specific pixel in the image

@@ -15,17 +15,14 @@ layout(location = 9) uniform float terrainFactor;
 
 out vec3 color;
 
+const ivec2 offsets[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+
 vec2 getGradient(vec2 uv, float t, float span) {
-    vec4 h = vec4(
-        texture(tex, vec3(uv + ivec2(-1, 0) * t, vTexIdx)).x,
-        texture(tex, vec3(uv + ivec2(1, 0)  * t, vTexIdx)).x,
-        texture(tex, vec3(uv + ivec2(0, -1) * t, vTexIdx)).x,
-        texture(tex, vec3(uv + ivec2(0, 1)  * t, vTexIdx)).x
-    );
-    h = max(vec4(0), h) * terrainFactor;
+    vec4 h = textureGatherOffsets(tex, vec3(uv, vTexIdx), offsets, 0);
+    h *= terrainFactor;
 
     const ivec3 size = textureSize(tex, 0);
-    return vec2(h.y - h.x, h.w - h.z) * size.xy / span;
+    return vec2(h.y - h.x, h.w - h.z) * size.xy / span * 100;
 }
 
 void main() {
