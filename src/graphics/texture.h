@@ -5,6 +5,8 @@
 
 namespace ou {
 
+class RawBufferView;
+
 class Texture {
     GLuint m_id;
 
@@ -33,15 +35,15 @@ public:
 
     void allocateStorage1D(GLsizei levels, GLenum internalFormat, GLsizei width);
     void uploadTexture1D(GLint level, GLint xoffset, GLsizei width,
-        GLenum format, GLenum type, const void* pixels);
+        GLenum format, GLenum type, RawBufferView pixels);
 
     void allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height);
     void uploadTexture2D(GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
-        GLenum format, GLenum type, const void* pixels);
+        GLenum format, GLenum type, RawBufferView pixels);
 
     void allocateStoarge3D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height, GLsizei depth);
     void uploadTexture3D(GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth,
-        GLenum format, GLenum type, const void* pixels);
+        GLenum format, GLenum type, RawBufferView pixels);
 
     void use(GLenum target);
     void useAsTexture(GLuint unit);

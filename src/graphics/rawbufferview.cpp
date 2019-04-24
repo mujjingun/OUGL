@@ -1,5 +1,7 @@
 #include "rawbufferview.h"
 
+namespace ou {
+
 const void* RawBufferView::data() const
 {
     return m_data;
@@ -14,4 +16,5 @@ RawBufferView::RawBufferView()
     : m_data(nullptr)
     , m_size(0)
 {
+}
 }

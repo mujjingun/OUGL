@@ -1,4 +1,5 @@
 #include "texture.h"
+#include "rawbufferview.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -61,9 +62,9 @@ void Texture::allocateStorage1D(GLsizei levels, GLenum internalFormat, GLsizei w
     glTextureStorage1D(m_id, levels, internalFormat, width);
 }
 
-void Texture::uploadTexture1D(GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels)
+void Texture::uploadTexture1D(GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, RawBufferView pixels)
 {
-    glTextureSubImage1D(m_id, level, xoffset, width, format, type, pixels);
+    glTextureSubImage1D(m_id, level, xoffset, width, format, type, pixels.data());
 }
 
 void Texture::allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height)
@@ -72,9 +73,9 @@ void Texture::allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei w
 }
 
 void Texture::uploadTexture2D(GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
-    GLenum format, GLenum type, const void* pixels)
+    GLenum format, GLenum type, RawBufferView pixels)
 {
-    glTextureSubImage2D(m_id, level, xoffset, yoffset, width, height, format, type, pixels);
+    glTextureSubImage2D(m_id, level, xoffset, yoffset, width, height, format, type, pixels.data());
 }
 
 void Texture::allocateStoarge3D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height, GLsizei depth)
@@ -83,9 +84,9 @@ void Texture::allocateStoarge3D(GLsizei levels, GLenum internalFormat, GLsizei w
 }
 
 void Texture::uploadTexture3D(GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth,
-    GLenum format, GLenum type, const void* pixels)
+    GLenum format, GLenum type, RawBufferView pixels)
 {
-    glTextureSubImage3D(m_id, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+    glTextureSubImage3D(m_id, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels.data());
 }
 
 void Texture::use(GLenum target)

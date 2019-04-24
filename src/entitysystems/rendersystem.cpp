@@ -104,6 +104,9 @@ void RenderSystem::render(ECSEngine& engine)
         if (!planet.heightBases) {
             planet.heightBases = std::make_shared<Texture>(GL_TEXTURE_1D);
             planet.heightBases->allocateStorage1D(1, GL_R32F, params.terrainTextureCount);
+
+            std::vector<GLfloat> data(params.terrainTextureCount, 0.0f);
+            planet.heightBases->uploadTexture1D(0, 0, params.terrainTextureCount, GL_RED, GL_FLOAT, data);
         }
 
         // initialize top-level lod
@@ -194,8 +197,7 @@ void RenderSystem::render(ECSEngine& engine)
                 lod0Attribs[cubeCoords.side].discardRegion = {
                     -.5 + off.x, -.5 + off.y, .5 + off.x, .5 + off.y
                 };
-            }
-            else if (lod > 1) {
+            } else if (lod > 1) {
                 glm::ivec2 r = snapNums - currentSnapNums.back() * std::int64_t(2);
                 higherLodAttribs.back().discardRegion = {
                     -.5 + r.x * cellSize, -.5 + r.y * cellSize, .5 + r.x * cellSize, .5 + r.y * cellSize

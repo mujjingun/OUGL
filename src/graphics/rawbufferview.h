@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+namespace ou {
+
 class RawBufferView {
     const void* m_data;
     std::size_t m_size;
@@ -35,5 +37,6 @@ public:
     const void* data() const;
     std::size_t size() const;
 };
+}
 
 #endif // RAWBUFFERVIEW_H
