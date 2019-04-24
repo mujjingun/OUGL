@@ -1,8 +1,9 @@
 #version 430
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-layout(r32f, binding = 0) uniform image2DArray image;
+layout(r32f, binding = 0) uniform image2D image;
 layout(binding = 1) uniform sampler2DArray tex;
+layout(r32f, binding = 2) uniform image1D bases;
 
 struct Lod
 {
@@ -13,7 +14,7 @@ struct Lod
     int parentIdx;
 };
 
-layout(std140, binding = 1) uniform LodData
+layout(std140, binding = 3) uniform LodData
 {
     Lod uLods[36];
 };
@@ -210,7 +211,7 @@ vec4 filt(vec2 texcoord, vec2 texscale, int idx)
 #define MARGIN 2
 
 void main() {
-    ivec3 pixel_coords = ivec3(gl_GlobalInvocationID.xyz);
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
     vec2 imgSize = vec2(imageSize(image).xy);
     vec2 t = 1 / imgSize;
 
@@ -224,13 +225,16 @@ void main() {
     vec2 pOffset = lod.pDiff * (1 - (MARGIN * 2 + 1) * t);
     vec2 pUv = uv / 2 + .25 + pOffset;
     vec4 pixel = filt(pUv * imgSize, 1 / imgSize, plod.imgIdx);
+    float base = texture(tex, vec3(.5, .5, plod.imgIdx)).r;
+    pixel.x -= base;
+    base += imageLoad(bases, plod.imgIdx).r;
 
     // generate heightmap by perlin noise
     vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
-    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 8;
+    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 16;
     //pixel.x = xy.x + xy.y;
 
     // output to a specific pixel in the image
-    pixel_coords.z = lod.imgIdx;
     imageStore(image, pixel_coords, pixel);
+    imageStore(bases, lod.imgIdx, vec4(base, 0, 0, 0));
 }

@@ -101,6 +101,11 @@ void RenderSystem::render(ECSEngine& engine)
             return;
         }
 
+        if (!planet.heightBases) {
+            planet.heightBases = std::make_shared<Texture>(GL_TEXTURE_1D);
+            planet.heightBases->allocateStorage1D(1, GL_R32F, params.terrainTextureCount);
+        }
+
         // initialize top-level lod
         if (!planet.terrainTextures) {
             planet.terrainTextures = std::make_shared<Texture>(GL_TEXTURE_2D_ARRAY);
@@ -114,7 +119,7 @@ void RenderSystem::render(ECSEngine& engine)
                 params.terrainTextureCount); // array size
 
             m_terrainGenerator.use();
-            planet.terrainTextures->useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
+            planet.terrainTextures->useAsImage(0, 0, GL_WRITE_ONLY, GL_R32F);
             glDispatchCompute(params.terrainTextureSize / 32, params.terrainTextureSize / 32, 6);
             glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         }
@@ -261,9 +266,10 @@ void RenderSystem::render(ECSEngine& engine)
 
             // write to texture
             m_terrainDetailGenerator.use();
-            planet.terrainTextures->useAsImage(0, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32F);
+            planet.terrainTextures->useLayerAsImage(0, 0, lodDataList[lodUpdateIdx].imgIdx, GL_WRITE_ONLY, GL_R32F);
             planet.terrainTextures->useAsTexture(1);
-            m_lodUboBuf.use(GL_UNIFORM_BUFFER, 1);
+            planet.heightBases->useAsImage(2, 0, GL_READ_WRITE, GL_R32F);
+            m_lodUboBuf.use(GL_UNIFORM_BUFFER, 3);
 
             const int numWorkGroups = params.terrainTextureSize / 32;
             glDispatchCompute(numWorkGroups, numWorkGroups, 1);
@@ -342,6 +348,7 @@ void RenderSystem::render(ECSEngine& engine)
         m_planetShader.use();
         m_vao.use();
         planet.terrainTextures->useAsTexture(0);
+        planet.heightBases->useAsImage(1, 0, GL_READ_ONLY, GL_R32F);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
         Input const& input = engine.getOne<Input>();

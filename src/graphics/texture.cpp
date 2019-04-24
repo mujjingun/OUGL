@@ -56,6 +56,16 @@ void Texture::allocateMultisample3D(GLsizei samples, GLenum internalformat,
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, original);
 }
 
+void Texture::allocateStorage1D(GLsizei levels, GLenum internalFormat, GLsizei width)
+{
+    glTextureStorage1D(m_id, levels, internalFormat, width);
+}
+
+void Texture::uploadTexture1D(GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels)
+{
+    glTextureSubImage1D(m_id, level, xoffset, width, format, type, pixels);
+}
+
 void Texture::allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height)
 {
     glTextureStorage2D(m_id, levels, internalFormat, width, height);
@@ -88,9 +98,14 @@ void Texture::useAsTexture(GLuint unit)
     glBindTextureUnit(unit, m_id);
 }
 
-void Texture::useAsImage(GLuint unit, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
+void Texture::useAsImage(GLuint unit, GLint level, GLenum access, GLenum format)
 {
-    glBindImageTexture(unit, m_id, level, layered, layer, access, format);
+    glBindImageTexture(unit, m_id, level, GL_TRUE, 0, access, format);
+}
+
+void Texture::useLayerAsImage(GLuint unit, GLint level, GLint layer, GLenum access, GLenum format)
+{
+    glBindImageTexture(unit, m_id, level, GL_FALSE, layer, access, format);
 }
 
 void Texture::saveToImage(GLenum format, GLenum type, GLsizei width, GLsizei height, GLsizei depth, const char* filename) const

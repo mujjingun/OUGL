@@ -31,6 +31,7 @@ struct PlanetComponent {
     double terrainFactor = 0.000012;
     std::shared_ptr<Texture> lod0Textures{};
     std::shared_ptr<Texture> terrainTextures{};
+    std::shared_ptr<Texture> heightBases{};
     std::vector<glm::i64vec2> snapNums{};
     std::shared_ptr<CircularBuffer<PBOSync>> pbos{};
     std::int64_t playerTerrainHeight = 0.0f;

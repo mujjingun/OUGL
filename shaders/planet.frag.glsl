@@ -10,6 +10,7 @@ flat in vec4 vDiscardReg;
 flat in int vTexIdx;
 
 layout(binding = 0) uniform sampler2DArray tex;
+layout(r32f, binding = 1) uniform image1D bases;
 
 layout(location = 9) uniform float terrainFactor;
 
@@ -40,9 +41,9 @@ void main() {
     vec2 t = 1 / vec2(textureSize(tex, 0));
     vec2 uv = (vUv + 1.0) * .5;
     uv = mix(t * 2.5, 1 - t * 2.5, uv);
-    vec4 mapValue = texture(tex, vec3(uv, vTexIdx));
-    float height = mapValue.r;
-    height = max(0, height) * terrainFactor;
+    float height = texture(tex, vec3(uv, vTexIdx)).r;
+    float base = imageLoad(bases, vTexIdx).r;
+    height = max(0, base + height) * terrainFactor;
 
     vec2 grad = getGradient(uv, t.x, vScale);
     vec3 normal = normalize(cross(vFx, vFy));

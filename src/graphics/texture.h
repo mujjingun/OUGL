@@ -31,6 +31,10 @@ public:
     void allocateMultisample3D(GLsizei samples, GLenum internalformat,
         GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
 
+    void allocateStorage1D(GLsizei levels, GLenum internalFormat, GLsizei width);
+    void uploadTexture1D(GLint level, GLint xoffset, GLsizei width,
+        GLenum format, GLenum type, const void* pixels);
+
     void allocateStorage2D(GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height);
     void uploadTexture2D(GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
         GLenum format, GLenum type, const void* pixels);
@@ -41,7 +45,8 @@ public:
 
     void use(GLenum target);
     void useAsTexture(GLuint unit);
-    void useAsImage(GLuint unit, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
+    void useAsImage(GLuint unit, GLint level, GLenum access, GLenum format);
+    void useLayerAsImage(GLuint unit, GLint level, GLint layer, GLenum access, GLenum format);
 
     void saveToImage(GLenum format, GLenum type, GLsizei width, GLsizei height, GLsizei depth, const char* filename) const;
 };
