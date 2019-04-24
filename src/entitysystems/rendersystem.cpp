@@ -21,11 +21,30 @@ struct InstanceAttrib {
     short texIdx;
 };
 
+static const char hdrVertShaderSrc[] =
+#include "shaders/hdr.vert.glsl"
+    ;
+static const char hdrFragShaderSrc[] =
+#include "shaders/hdr.frag.glsl"
+    ;
+static const char planetVertShaderSrc[] =
+#include "shaders/planet.vert.glsl"
+    ;
+static const char planetFragShaderSrc[] =
+#include "shaders/planet.frag.glsl"
+    ;
+static const char terrainShaderSrc[] =
+#include "shaders/terrain.comp.glsl"
+    ;
+static const char terrain2ShaderSrc[] =
+#include "shaders/terrain2.comp.glsl"
+    ;
+
 RenderSystem::RenderSystem(const Parameters& params)
-    : m_hdrShader("shaders/hdr.vert.glsl", "shaders/hdr.frag.glsl")
-    , m_planetShader("shaders/planet.vert.glsl", "shaders/planet.frag.glsl")
-    , m_terrainGenerator("shaders/terrain.comp.glsl")
-    , m_terrainDetailGenerator("shaders/terrain2.comp.glsl")
+    : m_hdrShader(hdrVertShaderSrc, hdrFragShaderSrc)
+    , m_planetShader(planetVertShaderSrc, planetFragShaderSrc)
+    , m_terrainGenerator(terrainShaderSrc)
+    , m_terrainDetailGenerator(terrain2ShaderSrc)
 {
     glEnable(GL_CULL_FACE);
 

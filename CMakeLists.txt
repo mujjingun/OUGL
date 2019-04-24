@@ -46,20 +46,6 @@ target_compile_definitions(OUGL PUBLIC
 target_compile_options(OUGL PRIVATE
     -Wall -Wextra -pedantic -Werror)
 
-# Copy shaders
-set(SHADER_FILES
-    shaders/planet.vert.glsl
-    shaders/planet.frag.glsl
-    shaders/hdr.vert.glsl
-    shaders/hdr.frag.glsl
-    shaders/terrain.comp.glsl
-    shaders/terrain2.comp.glsl
-)
-
-foreach(SHADER_FILE ${SHADER_FILES})
-    configure_file(${SHADER_FILE} ${SHADER_FILE} COPYONLY)
-endforeach()
-
 # Testing
 #enable_testing()
 #find_package(GTest REQUIRED)

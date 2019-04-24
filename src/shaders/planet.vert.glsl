@@ -1,3 +1,4 @@
+R"GLSL(
 #version 430 core
 
 layout(location = 0) uniform mat4 viewProjMat;
@@ -140,3 +141,4 @@ void main() {
     vLogz = log(gl_Position.w * C + 1) * FC;
     gl_Position.z = (2 * vLogz - 1) * gl_Position.w;
 }
+)GLSL"

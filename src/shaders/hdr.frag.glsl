@@ -1,3 +1,4 @@
+R"GLSL(
 #version 430 core
 
 in vec2 vTexCoords;
@@ -20,3 +21,4 @@ void main()
 
     FragColor = vec4(color, 1.0);
 }
+)GLSL"

@@ -43,7 +43,7 @@ Scene::Scene()
     PlanetComponent planet2;
     planet2.position = VoxelCoords{ { 0, 0, 0 }, { 4522158352203439, 5564338967149668, 9204185566471351 } };
     planet2.planetRadius = 4000000000000;
-    //m_engine.addEntity(Entity({ planet2 }));
+    m_engine.addEntity(Entity({ planet2 }));
 
     m_engine.addSystem(std::make_unique<InputSystem>(), 9);
     m_engine.addSystem(std::make_unique<CameraSystem>(), 1);
@@ -61,6 +61,8 @@ void Scene::render()
 
     // update & render
     m_engine.update(std::chrono::duration<float>(deltaTime).count());
+    auto elapsed = std::chrono::system_clock::now() - now;
+    std::cout << std::chrono::duration<float>(elapsed).count() * 1000.f << "ms\n";
 }
 
 Input& Scene::input()

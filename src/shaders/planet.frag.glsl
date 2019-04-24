@@ -1,3 +1,4 @@
+R"GLSL(
 #version 430 core
 
 in vec2 vUv;
@@ -67,3 +68,4 @@ void main() {
 
     color *= light;
 }
+)GLSL"

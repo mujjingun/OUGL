@@ -1,3 +1,4 @@
+R"GLSL(
 #version 430
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
@@ -232,9 +233,10 @@ void main() {
     // generate heightmap by perlin noise
     vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
     pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 16;
-    //pixel.x = xy.x + xy.y;
+    //pixel.x += xy.x + xy.y;
 
     // output to a specific pixel in the image
     imageStore(image, pixel_coords, pixel);
     imageStore(bases, lod.imgIdx, vec4(base, 0, 0, 0));
 }
+)GLSL"
