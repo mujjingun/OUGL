@@ -2,7 +2,7 @@ R"GLSL(
 #version 430
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-layout(r32f, binding = 0) uniform image2D image;
+layout(r16f, binding = 0) uniform image2D image;
 layout(binding = 1) uniform sampler2DArray tex;
 layout(r32f, binding = 2) uniform image1D bases;
 

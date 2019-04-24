@@ -13,6 +13,10 @@ class Texture {
 public:
     Texture();
     Texture(GLenum target);
+
+    static Texture make_view(Texture const& tex, GLenum target,
+        GLenum internalFormat, GLuint minLevel, GLuint numLevels, GLuint minLayer, GLuint numLayers);
+
     ~Texture();
 
     Texture(Texture const&) = delete;

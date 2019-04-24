@@ -13,9 +13,13 @@
 namespace ou {
 
 class Scene {
-    ECSEngine m_engine;
+    ECSEngine m_engine{};
 
     std::chrono::system_clock::time_point m_lastFrameTime;
+
+    std::chrono::duration<float> m_elapsedTime{};
+    std::chrono::duration<float> m_totalWorkTime{};
+    int m_frameCount{};
 
 public:
     Scene();

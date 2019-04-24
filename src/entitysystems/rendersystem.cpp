@@ -136,12 +136,12 @@ void RenderSystem::render(ECSEngine& engine)
             planet.terrainTextures->setWrapT(GL_CLAMP_TO_BORDER);
             planet.terrainTextures->setMinFilter(GL_LINEAR);
             planet.terrainTextures->setMagFilter(GL_LINEAR);
-            planet.terrainTextures->allocateStoarge3D(1, GL_R32F,
+            planet.terrainTextures->allocateStoarge3D(1, GL_R16F,
                 params.terrainTextureSize, params.terrainTextureSize, // width, height
                 params.terrainTextureCount); // array size
 
             m_terrainGenerator.use();
-            planet.terrainTextures->useAsImage(0, 0, GL_WRITE_ONLY, GL_R32F);
+            planet.terrainTextures->useAsImage(0, 0, GL_WRITE_ONLY, GL_R16F);
             glDispatchCompute(params.terrainTextureSize / 32, params.terrainTextureSize / 32, 6);
             glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         }
@@ -287,7 +287,7 @@ void RenderSystem::render(ECSEngine& engine)
 
             // write to texture
             m_terrainDetailGenerator.use();
-            planet.terrainTextures->useLayerAsImage(0, 0, lodDataList[lodUpdateIdx].imgIdx, GL_WRITE_ONLY, GL_R32F);
+            planet.terrainTextures->useLayerAsImage(0, 0, lodDataList[lodUpdateIdx].imgIdx, GL_WRITE_ONLY, GL_R16F);
             planet.terrainTextures->useAsTexture(1);
             planet.heightBases->useAsImage(2, 0, GL_READ_WRITE, GL_R32F);
             m_lodUboBuf.use(GL_UNIFORM_BUFFER, 3);
@@ -317,34 +317,34 @@ void RenderSystem::render(ECSEngine& engine)
             }
         }
 
-        if (planet.pbos->count()) {
-            PBOSync& pbo = planet.pbos->pop();
-
-            GLenum pboStatus = glClientWaitSync(pbo.sync, 0, 0);
-            if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
-                glDeleteSync(pbo.sync);
-
-                GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
-                double height = static_cast<double>(data[0]);
-                pbo.buf.unmap();
-
-                double adjustedHeight = glm::max(height, 0.0) * planet.terrainFactor;
-                planet.playerTerrainHeight = std::int64_t(adjustedHeight * planet.planetRadius);
-            }
-        }
-
-        // read height value
-        if (planet.pbos->available() && higherLodAttribs.size()) {
-            PBOSync& pbo = planet.pbos->push();
-
-            InstanceAttrib hLod = instanceAttribs.back();
-            glm::vec2 coords = (hLod.offset + 1.0f) * 0.5f * float(params.terrainTextureSize);
-            glm::ivec2 iCoords = glm::clamp(glm::ivec2(glm::round(coords)), 0, params.terrainTextureSize);
-            pbo.buf.copyTexture(*planet.terrainTextures, 0,
-                { iCoords, hLod.texIdx },
-                { 1, 1, 1 }, GL_RED, GL_FLOAT, sizeof(GLfloat) * 1, 0);
-            pbo.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        }
+        //if (planet.pbos->count()) {
+        //    PBOSync& pbo = planet.pbos->pop();
+        //
+        //    GLenum pboStatus = glClientWaitSync(pbo.sync, 0, 0);
+        //    if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
+        //        glDeleteSync(pbo.sync);
+        //
+        //        GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
+        //        double height = static_cast<double>(data[0]);
+        //        pbo.buf.unmap();
+        //
+        //        double adjustedHeight = glm::max(height, 0.0) * planet.terrainFactor;
+        //        planet.playerTerrainHeight = std::int64_t(adjustedHeight * planet.planetRadius);
+        //    }
+        //}
+        //
+        //// read height value
+        //if (planet.pbos->available() && higherLodAttribs.size()) {
+        //    PBOSync& pbo = planet.pbos->push();
+        //
+        //    InstanceAttrib hLod = instanceAttribs.back();
+        //    glm::vec2 coords = (hLod.offset + 1.0f) * 0.5f * float(params.terrainTextureSize);
+        //    glm::ivec2 iCoords = glm::clamp(glm::ivec2(glm::round(coords)), 0, params.terrainTextureSize);
+        //    pbo.buf.copyTexture(*planet.terrainTextures, 0,
+        //        { iCoords, hLod.texIdx },
+        //        { 1, 1, 1 }, GL_RED, GL_FLOAT, sizeof(GLfloat) * 1, 0);
+        //    pbo.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        //}
 
         // upload instance attribs
         m_instanceAttrBuf.setData(instanceAttribs, GL_STATIC_DRAW);

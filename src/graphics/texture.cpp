@@ -142,6 +142,14 @@ Texture::Texture(GLenum target)
     glCreateTextures(target, 1, &m_id);
 }
 
+Texture Texture::make_view(const Texture &tex, GLenum target, GLenum internalFormat, GLuint minLevel, GLuint numLevels, GLuint minLayer, GLuint numLayers)
+{
+    Texture view;
+    glGenTextures(1, &view.m_id);
+    glTextureView(view.id(), target, tex.id(), internalFormat, minLevel, numLevels, minLayer, numLayers);
+    return view;
+}
+
 Texture::~Texture()
 {
     glDeleteTextures(1, &m_id);

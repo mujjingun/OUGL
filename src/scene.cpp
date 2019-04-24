@@ -28,6 +28,7 @@ void Scene::reshapeWindow(int width, int height)
 }
 
 Scene::Scene()
+    : m_lastFrameTime(std::chrono::system_clock::now())
 {
     // scene entity
     SceneComponent scene;
@@ -54,15 +55,34 @@ Scene::~Scene() = default;
 
 void Scene::render()
 {
+    using namespace std::chrono;
+    using namespace std::chrono_literals;
+
     // Update time stuff
-    auto now = std::chrono::system_clock::now();
+    auto now = system_clock::now();
     auto deltaTime = now - m_lastFrameTime;
     m_lastFrameTime = now;
 
     // update & render
-    m_engine.update(std::chrono::duration<float>(deltaTime).count());
-    auto elapsed = std::chrono::system_clock::now() - now;
-    std::cout << std::chrono::duration<float>(elapsed).count() * 1000.f << "ms\n";
+    m_engine.update(duration<float>(deltaTime).count());
+
+    m_elapsedTime += deltaTime;
+
+    auto elapsed = system_clock::now() - now;
+    m_totalWorkTime += elapsed;
+    m_frameCount++;
+
+    // do every second
+    if (m_elapsedTime > 1s) {
+        m_elapsedTime -= 1s;
+
+        std::cout << "CPU Processing Time: "
+                  << m_totalWorkTime.count() / m_frameCount * 1000.f
+                  << "ms" << std::endl;
+
+        m_totalWorkTime = 0s;
+        m_frameCount = 0;
+    }
 }
 
 Input& Scene::input()
