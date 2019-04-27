@@ -52,7 +52,7 @@ void CameraSystem::update(ECSEngine& engine, float deltaTime)
     if (nearest) {
         glm::i64vec3 diff = (scene.position - nearest->position).pos;
         auto distanceFromCenter = std::int64_t(glm::length(glm::dvec3(diff)));
-        altitude = distanceFromCenter - nearest->planetRadius - nearest->playerTerrainHeight;
+        altitude = distanceFromCenter - nearest->radius - nearest->playerTerrainHeight;
         speed = altitude * 3;
     }
 

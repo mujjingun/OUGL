@@ -12,6 +12,17 @@
 
 namespace ou {
 
+static void show_source(const char* source)
+{
+    std::istringstream src(source);
+    std::string line;
+    int lineno = 0;
+    std::cerr << "Source:\n";
+    while (std::getline(src, line)) {
+        std::cerr << ++lineno << ": " << line << "\n";
+    }
+}
+
 static GLuint load_shaders(const char* vertex_shader, const char* fragment_shader)
 {
     // Create the shaders
@@ -32,6 +43,7 @@ static GLuint load_shaders(const char* vertex_shader, const char* fragment_shade
     if (infoLogLength > 0) {
         std::vector<char> VertexShaderErrorMessage(infoLogLength + 1);
         glGetShaderInfoLog(vertexShaderID, infoLogLength, nullptr, &VertexShaderErrorMessage[0]);
+        show_source(vertex_shader);
         std::cerr << &VertexShaderErrorMessage[0] << "\n";
         throw std::runtime_error("Error compiling vertex shader");
     }
@@ -47,6 +59,7 @@ static GLuint load_shaders(const char* vertex_shader, const char* fragment_shade
     if (infoLogLength > 0) {
         std::vector<char> fragmentShaderErrorMessage(infoLogLength + 1);
         glGetShaderInfoLog(fragmentShaderID, infoLogLength, nullptr, &fragmentShaderErrorMessage[0]);
+        show_source(fragment_shader);
         std::cerr << &fragmentShaderErrorMessage[0] << "\n";
         throw std::runtime_error("Error compiling fragment shader");
     }
@@ -95,6 +108,7 @@ static GLuint load_comp_shaders(const char* comp_shader)
     if (infoLogLength > 0) {
         std::vector<char> computeShaderErrorMessage(infoLogLength + 1);
         glGetShaderInfoLog(compShaderID, infoLogLength, nullptr, &computeShaderErrorMessage[0]);
+        show_source(comp_shader);
         std::cerr << &computeShaderErrorMessage[0] << "\n";
         throw std::runtime_error("Error compiling fragment shader");
     }

@@ -11,6 +11,7 @@ layout(location = 6) uniform vec3 yyCurv;
 layout(location = 7) uniform int playerSide;
 layout(location = 8) uniform vec3 eyeOffset;
 layout(location = 9) uniform float terrainFactor;
+layout(location = 10) uniform int baseIdx;
 
 // per-vertex attributes
 layout(location = 0) in vec2 pos;
@@ -23,6 +24,7 @@ layout(location = 4) in vec4 discardRegion;
 layout(location = 5) in int texIdx;
 
 layout(binding = 0) uniform sampler2DArray tex;
+layout(r32f, binding = 1) uniform image1D bases;
 
 out vec2 vUv;
 out vec2 vCube;
@@ -128,7 +130,8 @@ void main() {
     vec2 uv = (vUv + 1.0) * .5;
     uv = mix(t * 2.5, 1 - t * 2.5, uv);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
-    height = max(0, height) * terrainFactor;
+    float base = imageLoad(bases, vTexIdx).r - imageLoad(bases, baseIdx).r;
+    height = (height + base) * terrainFactor;
     vPosition -= eyeOffset;
     vPosition += normal * height;
 

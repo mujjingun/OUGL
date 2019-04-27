@@ -136,6 +136,21 @@ float ridgeWithOctaves(vec3 v, int n)
     return F;
 }
 
+float octaveNoise(vec3 pos, int octaves, float freq, float persistence)
+{
+    float total = 0.0;
+    float maxAmplitude = 0.0;
+    float amplitude = 1.0;
+    for (int i = 0; i < octaves; ++i) {
+        total += snoise(pos * freq) * amplitude;
+        freq *= 2.0;
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+    }
+
+    return total / maxAmplitude;
+}
+
 vec3 applySide(vec3 cube, int side)
 {
     switch (side) {
@@ -239,4 +254,5 @@ void main() {
     imageStore(image, pixel_coords, pixel);
     imageStore(bases, lod.imgIdx, vec4(base, 0, 0, 0));
 }
+
 )GLSL"

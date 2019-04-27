@@ -24,7 +24,7 @@ vec2 getGradient(vec2 uv, float t, float span) {
     h *= terrainFactor;
 
     const ivec3 size = textureSize(tex, 0);
-    return vec2(h.y - h.x, h.w - h.z) * size.xy / span * 100;
+    return vec2(h.y - h.x, h.w - h.z) * size.xy / span;
 }
 
 void main() {
@@ -47,13 +47,13 @@ void main() {
     height = max(0, base + height) * terrainFactor;
 
     vec2 grad = getGradient(uv, t.x, vScale);
-    vec3 normal = normalize(cross(vFx, vFy));
-    vec3 fx = vFx + normal * grad.x;
-    vec3 fy = vFy + normal * grad.y;
-    normal = normalize(cross(fx, fy));
-    float slope = length(grad);
+    vec3 snormal = normalize(cross(vFx, vFy));
+    vec3 fx = vFx + snormal * grad.x;
+    vec3 fy = vFy + snormal * grad.y;
+    vec3 normal = normalize(cross(fx, fy));
+    float slope = min(dot(snormal, normal), 1.0);
 
-    vec3 groundColor = mix(vec3(0.2, 0.14, 0.03), vec3(0.1, 0.6, 0.0), step(slope, 1.0));
+    vec3 groundColor = mix(vec3(0.3, 0.3, 0.3), vec3(0.1, 0.6, 0.0), 1 - step(slope, 0.9));
     color = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
 
     const vec3 lightDir = normalize(vec3(-1, 0, 1));

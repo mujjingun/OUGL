@@ -9,9 +9,14 @@ layout(r16f, binding = 0) uniform image2DArray image;
 DECL_FASTMOD_N(289, 2)
 DECL_FASTMOD_N(289, 3)
 DECL_FASTMOD_N(289, 4)
+DECL_FASTMOD_N(7, 3)
+DECL_FASTMOD_N(7, 4)
 
 // Permutation polynomial: (34x^2 + x) mod 289
 vec4 permute(vec4 x) {
+    return mod289(((x*34.0)+1.0)*x);
+}
+vec3 permute(vec3 x) {
     return mod289(((x*34.0)+1.0)*x);
 }
 
@@ -93,24 +98,98 @@ float snoise(vec3 v) {
                                 dot(p2,x2), dot(p3,x3) ) );
 }
 
+// Cellular noise, returning F1 and F2 in a vec2.
+// Speeded up by using 2x2x2 search window instead of 3x3x3,
+// at the expense of some pattern artifacts.
+// F2 is often wrong and has sharp discontinuities.
+// If you need a good F2, use the slower 3x3x3 version.
+float cellular2x2x2(vec3 P) {
+#define K 0.142857142857 // 1/7
+#define Ko 0.428571428571 // 1/2-K/2
+#define K2 0.020408163265306 // 1/(7*7)
+#define Kz 0.166666666667 // 1/6
+#define Kzo 0.416666666667 // 1/2-1/6*2
+#define jitter 0.8 // smaller jitter gives less errors in F2
+    vec3 Pi = mod289(floor(P));
+    vec3 Pf = fract(P);
+    vec4 Pfx = Pf.x + vec4(0.0, -1.0, 0.0, -1.0);
+    vec4 Pfy = Pf.y + vec4(0.0, 0.0, -1.0, -1.0);
+    vec4 p = permute(Pi.x + vec4(0.0, 1.0, 0.0, 1.0));
+    p = permute(p + Pi.y + vec4(0.0, 0.0, 1.0, 1.0));
+    vec4 p1 = permute(p + Pi.z); // z+0
+    vec4 p2 = permute(p + Pi.z + vec4(1.0)); // z+1
+    vec4 ox1 = fract(p1*K) - Ko;
+    vec4 oy1 = mod7(floor(p1*K))*K - Ko;
+    vec4 oz1 = floor(p1*K2)*Kz - Kzo; // p1 < 289 guaranteed
+    vec4 ox2 = fract(p2*K) - Ko;
+    vec4 oy2 = mod7(floor(p2*K))*K - Ko;
+    vec4 oz2 = floor(p2*K2)*Kz - Kzo;
+    vec4 dx1 = Pfx + jitter*ox1;
+    vec4 dy1 = Pfy + jitter*oy1;
+    vec4 dz1 = Pf.z + jitter*oz1;
+    vec4 dx2 = Pfx + jitter*ox2;
+    vec4 dy2 = Pfy + jitter*oy2;
+    vec4 dz2 = Pf.z - 1.0 + jitter*oz2;
+    vec4 d1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1; // z+0
+    vec4 d2 = dx2 * dx2 + dy2 * dy2 + dz2 * dz2; // z+1
+
+    // Cheat and sort out only F1
+    d1 = min(d1, d2);
+    d1.xy = min(d1.xy, d1.wz);
+    d1.x = min(d1.x, d1.y);
+    return sqrt(d1.x);
+}
+
 float ridgeNoise(vec3 v)
 {
     return 2 * (.5 - abs(0.5 - snoise(v)));
     //return -abs(abs(2 * snoise(v)) - 1) + 1;
 }
 
-float ridgeWithOctaves(vec3 v, int n)
+float octaveNoise(vec3 pos, int octaves, float freq, float persistence)
 {
-    float F = 1;
-    float coeff = 1.0f;
-    for (int i = 0; i < n; ++i) {
-        float t = ridgeNoise(v * coeff) / coeff;
-        t = sign(t) * pow(abs(t), 0.9f);
-        F += t * F;
-        coeff *= 2;
+    float total = 0.0;
+    float maxAmplitude = 0.0;
+    float amplitude = 1.0;
+    for (int i = 0; i < octaves; ++i) {
+        total += snoise(pos * freq) * amplitude;
+        freq *= 2.0;
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
     }
-    F = sign(F) * pow(abs(F), 1.3f);
-    return F;
+
+    return total / maxAmplitude;
+}
+
+float octaveRidgeNoise(vec3 pos, int octaves, float freq, float persistence)
+{
+    float total = 0.0;
+    float maxAmplitude = 0.0;
+    float amplitude = 1.0;
+    for (int i = 0; i < octaves; ++i) {
+        total += ridgeNoise(pos * freq) * amplitude;
+        freq *= 2.0;
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+    }
+
+    return total / maxAmplitude;
+}
+
+float octaveWorleyNoise(vec3 pos, int octaves, float freq, float persistence)
+{
+    float total = 0.0;
+    float maxAmplitude = 0.0;
+    float amplitude = 1.0;
+    for (int i = 0; i < octaves; ++i) {
+        float noise = cellular2x2x2(pos * freq);
+        total += pow(noise, 3) * amplitude;
+        freq *= 2.0;
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+    }
+
+    return total / maxAmplitude;
 }
 
 vec3 applySide(vec3 cube, int side)
@@ -159,7 +238,12 @@ void main() {
     vec2 xy = uv * 2. - 1.;
     vec3 pos = spherizePoint(xy, pixel_coords.z);
 
-    float height = (ridgeWithOctaves(pos * 2.0, 20) - 1.0);
+    //float height = (ridgeWithOctaves(pos * 2.0, 20) - 1.0);
+    float height = octaveRidgeNoise(pos, 8, 1.0, 0.8) * .5 + .1;
+    float mul = clamp(pow(octaveNoise(pos, 7, 2.0, 0.7), 3.0) * 30, 0, 1);
+    float mountains = octaveWorleyNoise(pos, 1, 90.0, 0.6) * 1.5 + .2;
+    mountains += octaveRidgeNoise(pos, 11, 10.0, 0.6) + .5;
+    height += mul * mountains;
     vec4 pixel = vec4(height, 0.0, 0.0, 1.0);
 
     // output to a specific pixel in the image

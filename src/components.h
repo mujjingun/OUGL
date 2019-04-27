@@ -22,19 +22,21 @@ struct SceneComponent {
 
 struct PBOSync {
     DeviceBuffer buf;
+    int texIdx;
     GLsync sync;
 };
 
 struct PlanetComponent {
-    std::int64_t planetRadius;
+    std::int64_t radius;
     VoxelCoords position;
-    double terrainFactor = 0.000012;
+    double terrainFactor = 0.0012;
     std::shared_ptr<Texture> lod0Textures{};
     std::shared_ptr<Texture> terrainTextures{};
     std::shared_ptr<Texture> heightBases{};
     std::vector<glm::i64vec2> snapNums{};
     std::shared_ptr<CircularBuffer<PBOSync>> pbos{};
     std::int64_t playerTerrainHeight = 0.0f;
+    int baseTexIdx = 0;
 };
 }
 
