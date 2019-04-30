@@ -24,7 +24,7 @@ layout(location = 4) in vec4 discardRegion;
 layout(location = 5) in int texIdx;
 
 layout(binding = 0) uniform sampler2DArray tex;
-layout(r32f, binding = 1) uniform image1D bases;
+layout(rg32f, binding = 1) uniform image1D bases;
 
 out vec2 vUv;
 out vec2 vCube;
@@ -130,7 +130,8 @@ void main() {
     vec2 uv = (vUv + 1.0) * .5;
     uv = mix(t * 2.5, 1 - t * 2.5, uv);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
-    float base = imageLoad(bases, vTexIdx).r - imageLoad(bases, baseIdx).r;
+    vec4 baseData = imageLoad(bases, vTexIdx) - imageLoad(bases, baseIdx);
+    float base = baseData.r + baseData.g;
     height = (height + base) * terrainFactor;
     vPosition -= eyeOffset;
     vPosition += normal * height;

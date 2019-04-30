@@ -2,7 +2,7 @@ R"GLSL(
 #version 430
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-layout(r16f, binding = 0) uniform image2DArray image;
+layout(r32f, binding = 0) uniform image2DArray image;
 
 #define DECL_FASTMOD_N(n, k) vec##k mod##n(vec##k x) { return x - floor(x * (1.0 / n)) * n; }
 

@@ -122,10 +122,10 @@ void RenderSystem::render(ECSEngine& engine)
 
         if (!planet.heightBases) {
             planet.heightBases = std::make_shared<Texture>(GL_TEXTURE_1D);
-            planet.heightBases->allocateStorage1D(1, GL_R32F, params.terrainTextureCount);
+            planet.heightBases->allocateStorage1D(1, GL_RG32F, params.terrainTextureCount);
 
-            std::vector<GLfloat> data(params.terrainTextureCount, 0.0f);
-            planet.heightBases->uploadTexture1D(0, 0, params.terrainTextureCount, GL_RED, GL_FLOAT, data);
+            std::vector<glm::vec2> data(params.terrainTextureCount, { 0.0f, 0.0f });
+            planet.heightBases->uploadTexture1D(0, 0, params.terrainTextureCount, GL_RG, GL_FLOAT, data);
         }
 
         // initialize top-level lod
@@ -248,12 +248,12 @@ void RenderSystem::render(ECSEngine& engine)
                 float scale;
                 int imgIdx;
                 int parentIdx;
-                int unused[1]{};
+                int lod;
             };
 
             std::vector<LodData> lodDataList(params.terrainTextureCount);
             for (int i = 0; i < 6; ++i) {
-                lodDataList[i] = { { 0, 0 }, {}, 1.0f, i, -1 };
+                lodDataList[i] = { { 0, 0 }, {}, 1.0f, i, -1, 0 };
             }
 
             glm::dvec2 updateCenter;
@@ -275,6 +275,7 @@ void RenderSystem::render(ECSEngine& engine)
                 lodData.scale = static_cast<float>(scale);
                 lodData.imgIdx = index;
                 lodData.parentIdx = parentIdx;
+                lodData.lod = lod;
                 lodDataList[index] = lodData;
             }
 
@@ -291,7 +292,7 @@ void RenderSystem::render(ECSEngine& engine)
             m_terrainDetailGenerator.use();
             planet.terrainTextures->useLayerAsImage(0, 0, lodDataList[lodUpdateIdx].imgIdx, GL_WRITE_ONLY, GL_R32F);
             planet.terrainTextures->useAsTexture(1);
-            planet.heightBases->useAsImage(2, 0, GL_READ_WRITE, GL_R32F);
+            planet.heightBases->useAsImage(2, 0, GL_READ_WRITE, GL_RG32F);
             m_lodUboBuf.use(GL_UNIFORM_BUFFER, 3);
 
             const int numWorkGroups = params.terrainTextureSize / 32;
@@ -336,14 +337,14 @@ void RenderSystem::render(ECSEngine& engine)
         m_planetShader.use();
         m_vao.use();
         planet.terrainTextures->useAsTexture(0);
-        planet.heightBases->useAsImage(1, 0, GL_READ_ONLY, GL_R32F);
+        planet.heightBases->useAsImage(1, 0, GL_READ_ONLY, GL_RG32F);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
         // initialize pbo
         if (!planet.pbos) {
             planet.pbos = std::make_shared<CircularBuffer<PBOSync>>(params.numPbos);
             for (PBOSync& pbo : *planet.pbos) {
-                pbo.buf.allocateStorage(sizeof(GLfloat) * 2, GL_STREAM_COPY);
+                pbo.buf.allocateStorage(sizeof(GLfloat) * 3, GL_STREAM_COPY);
             }
         }
 
@@ -356,7 +357,7 @@ void RenderSystem::render(ECSEngine& engine)
 
                 GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
                 double height = static_cast<double>(data[0]);
-                double base = static_cast<double>(data[1]);
+                double base = static_cast<double>(data[1]) + static_cast<double>(data[2]);
                 pbo.buf.unmap();
 
                 double adjustedHeight = (base + height) * planet.terrainFactor;
@@ -384,7 +385,7 @@ void RenderSystem::render(ECSEngine& engine)
             pbo.buf.copyTexture(*planet.heightBases, 0,
                 { pbo.texIdx, 0, 0 },
                 { 1, 1, 1 },
-                GL_RED, GL_FLOAT, sizeof(GLfloat) * 1,
+                GL_RG, GL_FLOAT, sizeof(GLfloat) * 2,
                 sizeof(GLfloat)); // offset into pbo
 
             pbo.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);

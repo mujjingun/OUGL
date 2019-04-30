@@ -2,9 +2,9 @@ R"GLSL(
 #version 430
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-layout(r16f, binding = 0) uniform image2D image;
+layout(r32f, binding = 0) uniform image2D image;
 layout(binding = 1) uniform sampler2DArray tex;
-layout(r32f, binding = 2) uniform image1D bases;
+layout(rg32f, binding = 2) uniform image1D bases;
 
 struct Lod
 {
@@ -13,6 +13,7 @@ struct Lod
     float scale;
     int imgIdx;
     int parentIdx;
+    int lod;
 };
 
 layout(std140, binding = 3) uniform LodData
@@ -243,16 +244,23 @@ void main() {
     vec4 pixel = filt(pUv * imgSize, 1 / imgSize, plod.imgIdx);
     float base = texture(tex, vec3(.5, .5, plod.imgIdx)).r;
     pixel.x -= base;
-    base += imageLoad(bases, plod.imgIdx).r;
 
     // generate heightmap by perlin noise
     vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
-    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * lod.scale / 16;
+    pixel.x += snoise(xy.xyy / pow(lod.scale, 1.5) * exp2(13)) * lod.scale / 16;
     //pixel.x += xy.x + xy.y;
 
     // output to a specific pixel in the image
     imageStore(image, pixel_coords, pixel);
-    imageStore(bases, lod.imgIdx, vec4(base, 0, 0, 0));
+
+    vec4 pBase = imageLoad(bases, plod.imgIdx);
+    if (lod.lod < 10) {
+        pBase.x += base;
+    }
+    else {
+        pBase.y += base;
+    }
+    imageStore(bases, lod.imgIdx, pBase);
 }
 
 )GLSL"
