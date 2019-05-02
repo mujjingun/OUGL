@@ -151,10 +151,11 @@ void RenderSystem::render(ECSEngine& engine)
         auto derivs = derivatives(cubeCoords.pos, cubeCoords.side);
         auto curvs = curvature(cubeCoords.pos, cubeCoords.side);
 
+        glm::i64vec3 basePos = normPos * static_cast<double>(planet.radius + planet.baseHeight);
+        glm::i64vec3 baseOffset = centeredPos.pos - basePos;
+        glm::dvec3 baseOffsetInRadiusUnits = glm::dvec3(baseOffset) / static_cast<double>(planet.radius);
+
         std::int64_t playerDistFromCore = planet.radius + planet.playerTerrainHeight;
-        glm::i64vec3 surfacePos = normPos * static_cast<double>(playerDistFromCore);
-        glm::i64vec3 surfaceOffset = centeredPos.pos - surfacePos;
-        glm::dvec3 surfaceOffsetInRadiusUnits = glm::dvec3(surfaceOffset) / static_cast<double>(planet.radius);
 
         // instance buffer data for lod 0
         std::vector<InstanceAttrib> lod0Attribs(6);
@@ -329,7 +330,7 @@ void RenderSystem::render(ECSEngine& engine)
         m_planetShader.setUniform(5, glm::vec3(curvs.fxy));
         m_planetShader.setUniform(6, glm::vec3(curvs.fyy));
         m_planetShader.setUniform(7, cubeCoords.side);
-        m_planetShader.setUniform(8, glm::vec3(surfaceOffsetInRadiusUnits));
+        m_planetShader.setUniform(8, glm::vec3(baseOffsetInRadiusUnits));
         m_planetShader.setUniform(9, static_cast<float>(planet.terrainFactor));
         m_planetShader.setUniform(10, planet.baseTexIdx);
 
@@ -360,8 +361,9 @@ void RenderSystem::render(ECSEngine& engine)
                 double base = static_cast<double>(data[1]) + static_cast<double>(data[2]);
                 pbo.buf.unmap();
 
-                double adjustedHeight = (base + height) * planet.terrainFactor;
-                planet.playerTerrainHeight = std::int64_t(adjustedHeight * planet.radius);
+                planet.baseHeight = std::int64_t(base * planet.terrainFactor * planet.radius);
+                double adjustedHeight = height * planet.terrainFactor * planet.radius;
+                planet.playerTerrainHeight = std::int64_t(adjustedHeight) + planet.baseHeight;
                 planet.baseTexIdx = pbo.texIdx;
             }
         }

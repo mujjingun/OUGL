@@ -254,7 +254,7 @@ void main() {
     imageStore(image, pixel_coords, pixel);
 
     vec4 pBase = imageLoad(bases, plod.imgIdx);
-    if (lod.lod < 10) {
+    if (lod.lod < 15) {
         pBase.x += base;
     }
     else {
