@@ -37,7 +37,7 @@ void CameraSystem::update(ECSEngine& engine, float deltaTime)
                 continue;
             }
 
-            double dist = glm::length(glm::dvec3(diff.pos));
+            double dist = glm::length(glm::dvec3(diff.pos)) - planet.radius;
             if (dist < minDistance) {
                 minDistance = dist;
                 result = &planet;
