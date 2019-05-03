@@ -26,6 +26,7 @@ Parameters::Parameters()
     , msaaSamples(4)
     , numPbos(4)
     , terrainTextureCount(maxLods + 6)
+    , rUnit(6371000000000)
 {
 }
 

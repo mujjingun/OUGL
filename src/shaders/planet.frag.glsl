@@ -57,7 +57,7 @@ void main() {
     vec3 groundColor = mix(vec3(0.3, 0.3, 0.3), vec3(0.1, 0.6, 0.0), 1 - step(slope, 0.9));
     color = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
 
-    const vec3 lightDir = normalize(vec3(-1, 0, 1));
+    const vec3 lightDir = normalize(vec3(0, 0, 1));
 
     float light = max(dot(normal, lightDir) * 1.0, 0.001);
     vec3 lightReflect = normalize(reflect(lightDir, normal));

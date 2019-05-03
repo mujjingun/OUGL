@@ -5,6 +5,7 @@
 #include "input.h"
 #include "parameters.h"
 #include "planetmath.h"
+#include "shaders.h"
 
 #include <GL/glew.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -20,25 +21,6 @@ struct InstanceAttrib {
     glm::vec4 discardRegion;
     short texIdx;
 };
-
-static const char hdrVertShaderSrc[] =
-#include "shaders/hdr.vert.glsl"
-    ;
-static const char hdrFragShaderSrc[] =
-#include "shaders/hdr.frag.glsl"
-    ;
-static const char planetVertShaderSrc[] =
-#include "shaders/planet.vert.glsl"
-    ;
-static const char planetFragShaderSrc[] =
-#include "shaders/planet.frag.glsl"
-    ;
-static const char terrainShaderSrc[] =
-#include "shaders/terrain.comp.glsl"
-    ;
-static const char terrain2ShaderSrc[] =
-#include "shaders/terrain2.comp.glsl"
-    ;
 
 RenderSystem::RenderSystem(const Parameters& params)
     : m_hdrShader(hdrVertShaderSrc, hdrFragShaderSrc)
@@ -153,7 +135,9 @@ void RenderSystem::render(ECSEngine& engine)
 
         glm::i64vec3 basePos = normPos * static_cast<double>(planet.radius + planet.baseHeight);
         glm::i64vec3 baseOffset = centeredPos.pos - basePos;
-        glm::dvec3 baseOffsetInRadiusUnits = glm::dvec3(baseOffset) / static_cast<double>(planet.radius);
+
+        const double normRadius = static_cast<double>(planet.radius) / params.rUnit;
+        const glm::vec3 normOffset = glm::dvec3(baseOffset) / static_cast<double>(params.rUnit);
 
         std::int64_t playerDistFromCore = planet.radius + planet.playerTerrainHeight;
 
@@ -330,9 +314,10 @@ void RenderSystem::render(ECSEngine& engine)
         m_planetShader.setUniform(5, glm::vec3(curvs.fxy));
         m_planetShader.setUniform(6, glm::vec3(curvs.fyy));
         m_planetShader.setUniform(7, cubeCoords.side);
-        m_planetShader.setUniform(8, glm::vec3(baseOffsetInRadiusUnits));
+        m_planetShader.setUniform(8, glm::vec3(normOffset));
         m_planetShader.setUniform(9, static_cast<float>(planet.terrainFactor));
-        m_planetShader.setUniform(10, planet.baseTexIdx);
+        m_planetShader.setUniform(10, planet.storedBase);
+        m_planetShader.setUniform(11, static_cast<float>(normRadius));
 
         // render planet
         m_planetShader.use();
@@ -358,6 +343,7 @@ void RenderSystem::render(ECSEngine& engine)
 
                 GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
                 double height = static_cast<double>(data[0]);
+                planet.storedBase = { data[1], data[2] };
                 double base = static_cast<double>(data[1]) + static_cast<double>(data[2]);
                 pbo.buf.unmap();
 

@@ -37,6 +37,7 @@ struct PlanetComponent {
     std::shared_ptr<CircularBuffer<PBOSync>> pbos{};
     std::int64_t playerTerrainHeight = 0.0f;
     std::int64_t baseHeight = 0.0f;
+    glm::vec2 storedBase{};
     int baseTexIdx = 0;
 };
 }

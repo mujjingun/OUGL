@@ -21,6 +21,7 @@ add_executable(OUGL
     src/entitysystems/camerasystem.cpp
     src/entitysystems/rendersystem.cpp
     src/entitysystems/inputsystem.cpp
+    src/entitysystems/shaders.cpp
 )
 
 set_target_properties(OUGL PROPERTIES

@@ -30,19 +30,21 @@ void Scene::reshapeWindow(int width, int height)
 Scene::Scene()
     : m_lastFrameTime(std::chrono::system_clock::now())
 {
+    glm::i64vec3 eye = { 4501787352203439, 5564338967149668, 9224185566471351 };
+
     // scene entity
     SceneComponent scene;
-    scene.position = { { 0, 0, 0 }, { 4501787352203439, 5564338967149668, 9224185566471351 } };
+    scene.position = { { 0, 0, 0 }, eye };
     m_engine.addEntity(Entity({ scene, Input{}, Parameters{} }));
 
     // planets
     PlanetComponent planet1;
-    planet1.position = VoxelCoords{ { 0, 0, 0 }, { 4501787352203439, 5564338967149668, 9183814566471351 } };
+    planet1.position = VoxelCoords{ { 0, 0, 0 }, eye + glm::i64vec3(0, 0, -40371000000000) };
     planet1.radius = 6371000000000;
     m_engine.addEntity(Entity({ planet1 }));
 
     PlanetComponent planet2;
-    planet2.position = VoxelCoords{ { 0, 0, 0 }, { 4522158352203439, 5564338967149668, 9204185566471351 } };
+    planet2.position = VoxelCoords{ { 0, 0, 0 }, eye + glm::i64vec3(6371000000000 + 4000000000000, 0, -40371000000000) };
     planet2.radius = 4000000000000;
     m_engine.addEntity(Entity({ planet2 }));
 

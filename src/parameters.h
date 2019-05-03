@@ -1,6 +1,8 @@
 #ifndef PARAMETERS_H
 #define PARAMETERS_H
 
+#include <cstdint>
+
 namespace ou {
 
 struct Parameters {
@@ -19,6 +21,7 @@ struct Parameters {
     int msaaSamples;
     int numPbos;
     int terrainTextureCount;
+    std::int64_t rUnit;
 };
 }
 

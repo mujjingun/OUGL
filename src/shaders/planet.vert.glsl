@@ -11,7 +11,8 @@ layout(location = 6) uniform vec3 yyCurv;
 layout(location = 7) uniform int playerSide;
 layout(location = 8) uniform vec3 eyeOffset;
 layout(location = 9) uniform float terrainFactor;
-layout(location = 10) uniform int baseIdx;
+layout(location = 10) uniform vec2 uBase;
+layout(location = 11) uniform float radius;
 
 // per-vertex attributes
 layout(location = 0) in vec2 pos;
@@ -58,7 +59,7 @@ vec3 applySide(vec2 cube, int side)
     return applySide(vec3(cube, 1.0), side);
 }
 
-vec3 spherizePoint(vec2 q, int side)
+vec3 spherizePoint(vec2 q, int side, float radius)
 {
     vec3 p = applySide(q, side);
     vec3 sq = p * p;
@@ -66,7 +67,7 @@ vec3 spherizePoint(vec2 q, int side)
         p.x * sqrt(max(1 - sq.y / 2 - sq.z / 2 + sq.y * sq.z / 3, 0.0)),
         p.y * sqrt(max(1 - sq.z / 2 - sq.x / 2 + sq.z * sq.x / 3, 0.0)),
         p.z * sqrt(max(1 - sq.x / 2 - sq.y / 2 + sq.x * sq.y / 3, 0.0))
-    );
+    ) * radius;
 }
 
 void derivative(vec2 cube, int side, out vec3 dfdx, out vec3 dfdy)
@@ -95,16 +96,18 @@ void main() {
     if (playerSide == int(side)) {
         vCube = c + origin;
 
-        vec3 spherized = spherizePoint(vCube, playerSide);
-        vec3 vBroad = spherized - spherizePoint(origin, playerSide);
+        vec3 spherized = spherizePoint(vCube, playerSide, radius);
+        vec3 vBroad = spherized - spherizePoint(origin, playerSide, radius);
         vec3 vApprox = c.x * xJac + c.y * yJac + .5 * (c.x * c.x * xxCurv + 2. * c.x * c.y * xyCurv + c.y * c.y * yyCurv);
+        vApprox *= radius;
         float mixFactor = smoothstep(0.0, 0.1, length(c));
 
         vPosition = mix(vApprox, vBroad, mixFactor);
 
         vec3 fxApprox = xJac + xxCurv * c.x + xyCurv * c.y;
         vec3 fyApprox = yJac + xyCurv * c.x + yyCurv * c.y;
-        vec3 fxBroad, fyBroad; derivative(vCube, playerSide, fxBroad, fyBroad);
+        vec3 fxBroad, fyBroad;
+        derivative(vCube, playerSide, fxBroad, fyBroad);
         vFx = mix(fxApprox, fxBroad, mixFactor);
         vFy = mix(fyApprox, fyBroad, mixFactor);
 
@@ -114,8 +117,8 @@ void main() {
     else {
         vCube = c;
 
-        vec3 spherized = spherizePoint(vCube, int(side));
-        vec3 vBroad = spherized - spherizePoint(origin, playerSide);
+        vec3 spherized = spherizePoint(vCube, int(side), radius);
+        vec3 vBroad = spherized - spherizePoint(origin, playerSide, radius);
 
         vPosition = vBroad;
 
@@ -130,11 +133,11 @@ void main() {
     vec2 uv = (vUv + 1.0) * .5;
     uv = mix(t * 2.5, 1 - t * 2.5, uv);
     float height = texture(tex, vec3(uv, vTexIdx)).r;
-    vec4 baseData = imageLoad(bases, vTexIdx) - imageLoad(bases, baseIdx);
+    vec2 baseData = imageLoad(bases, vTexIdx).rg - uBase;
     float base = baseData.r + baseData.g;
     height = (height + base) * terrainFactor;
     vPosition -= eyeOffset;
-    vPosition += normal * height;
+    vPosition += normal * radius * height;
 
     gl_Position = viewProjMat * vec4(vPosition, 1);
 
