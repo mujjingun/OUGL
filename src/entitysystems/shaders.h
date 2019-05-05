@@ -2,12 +2,14 @@
 #define SHADERS_H
 
 namespace ou {
-extern const char* hdrVertShaderSrc;
-extern const char* hdrFragShaderSrc;
-extern const char* planetVertShaderSrc;
-extern const char* planetFragShaderSrc;
-extern const char* terrainShaderSrc;
-extern const char* terrain2ShaderSrc;
+extern const char* const quadVertShaderSrc;
+extern const char* const hdrFragShaderSrc;
+extern const char* const skyVertShaderSrc;
+extern const char* const skyFragShaderSrc;
+extern const char* const planetVertShaderSrc;
+extern const char* const planetFragShaderSrc;
+extern const char* const terrainShaderSrc;
+extern const char* const terrain2ShaderSrc;
 }
 
 #endif // SHADERS_H

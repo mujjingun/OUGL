@@ -1,6 +1,24 @@
 R"GLSL(
 #version 430 core
 
+layout(std140, binding = 0) uniform Ubo {
+    mat4 viewProjMat;
+    vec3 xJac;
+    vec3 yJac;
+    vec3 xxCurv;
+    vec3 xyCurv;
+    vec3 yyCurv;
+    vec3 eyeOffset;
+    vec2 origin;
+    vec2 uBase;
+    int playerSide;
+    float terrainFactor;
+    float radius;
+};
+
+layout(binding = 1) uniform sampler2DArray tex;
+layout(rg32f, binding = 2) uniform image1D bases;
+
 in vec2 vUv;
 in vec2 vCube;
 in vec3 vPosition;
@@ -10,12 +28,7 @@ flat in float vScale;
 flat in vec4 vDiscardReg;
 flat in int vTexIdx;
 
-layout(binding = 0) uniform sampler2DArray tex;
-layout(rg32f, binding = 1) uniform image1D bases;
-
-layout(location = 9) uniform float terrainFactor;
-
-out vec3 color;
+out vec4 color;
 
 const ivec2 offsets[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
 
@@ -55,7 +68,7 @@ void main() {
     float slope = min(dot(snormal, normal), 1.0);
 
     vec3 groundColor = mix(vec3(0.3, 0.3, 0.3), vec3(0.1, 0.6, 0.0), 1 - step(slope, 0.9));
-    color = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
+    color.xyz = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
 
     const vec3 lightDir = normalize(vec3(0, 0, 1));
 
@@ -67,6 +80,7 @@ void main() {
     specularFactor = mix(specularFactor * 0.1, specularFactor * 7, step(height, 0.0));
     light += specularFactor;
 
-    color *= light;
+    color.xyz *= light;
+    color.a = 1;
 }
 )GLSL"

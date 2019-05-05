@@ -8,6 +8,7 @@
 #include "entitysystems/camerasystem.h"
 #include "entitysystems/inputsystem.h"
 #include "entitysystems/rendersystem.h"
+#include "entitysystems/planetsystem.h"
 
 #include <iostream>
 
@@ -41,15 +42,17 @@ Scene::Scene()
     PlanetComponent planet1;
     planet1.position = VoxelCoords{ { 0, 0, 0 }, eye + glm::i64vec3(0, 0, -40371000000000) };
     planet1.radius = 6371000000000;
+    planet1.terrainFactor = 0.0001;
     m_engine.addEntity(Entity({ planet1 }));
 
     PlanetComponent planet2;
-    planet2.position = VoxelCoords{ { 0, 0, 0 }, eye + glm::i64vec3(6371000000000 + 4000000000000, 0, -40371000000000) };
+    planet2.position = VoxelCoords{ { 0, 0, 0 }, eye + glm::i64vec3(6371000000000 + 5000000000000, 0, -40371000000000) };
     planet2.radius = 4000000000000;
-    m_engine.addEntity(Entity({ planet2 }));
+    //m_engine.addEntity(Entity({ planet2 }));
 
     m_engine.addSystem(std::make_unique<InputSystem>(), 9);
     m_engine.addSystem(std::make_unique<CameraSystem>(), 1);
+    m_engine.addSystem(std::make_unique<PlanetSystem>(), 1);
     m_engine.addSystem(std::make_unique<RenderSystem>(m_engine.getOne<Parameters>()), 0);
 }
 

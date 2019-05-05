@@ -18,24 +18,23 @@ class RenderSystem : public EntitySystem {
     Texture m_hdrColorTexture;
     RenderBuffer m_hdrDepthRenderBuffer;
     Shader m_hdrShader;
-    VertexArray m_hdrVao;
+    VertexArray m_quadVao;
 
     FrameBuffer m_hdrResolveFrameBuffer;
     Texture m_hdrResolveColorTexture;
 
     // Planet
     Shader m_planetShader;
+    Shader m_skyShader;
     Shader m_terrainGenerator, m_terrainDetailGenerator;
-    VertexArray m_vao;
-    DeviceBuffer m_gridBuf, m_instanceAttrBuf;
+    VertexArray m_planetVao;
+    DeviceBuffer m_meshBuf, m_instanceAttrBuf;
     std::size_t m_vertexCount;
     DeviceBuffer m_lodUboBuf;
 
 public:
     RenderSystem(Parameters const& params);
 
-    // EntitySystem interface
-public:
     void update(ECSEngine& engine, float deltaTime) override;
 
 private:

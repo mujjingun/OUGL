@@ -23,8 +23,9 @@ struct InstanceAttrib {
 };
 
 RenderSystem::RenderSystem(const Parameters& params)
-    : m_hdrShader(hdrVertShaderSrc, hdrFragShaderSrc)
+    : m_hdrShader(quadVertShaderSrc, hdrFragShaderSrc)
     , m_planetShader(planetVertShaderSrc, planetFragShaderSrc)
+    , m_skyShader(skyVertShaderSrc, skyFragShaderSrc)
     , m_terrainGenerator(terrainShaderSrc)
     , m_terrainDetailGenerator(terrain2ShaderSrc)
 {
@@ -50,43 +51,92 @@ RenderSystem::RenderSystem(const Parameters& params)
     m_vertexCount = gridPoints.size();
 
     // Create vertex buffer and fill it
-    m_gridBuf.setData(gridPoints, GL_STATIC_DRAW);
+    m_meshBuf.setData(gridPoints, GL_STATIC_DRAW);
 
     // Bind vertex buffer to vao binding position 0
-    VertexArray::BufferBinding vertexBinding = m_vao.getBinding(0);
-    vertexBinding.bindVertexBuffer(m_gridBuf, 0, sizeof(glm::vec2));
+    VertexArray::BufferBinding vertexBinding = m_planetVao.getBinding(0);
+    vertexBinding.bindVertexBuffer(m_meshBuf, 0, sizeof(glm::vec2));
 
     // Enable binding position 0
-    VertexArray::Attribute posAttr = m_vao.enableVertexAttrib(0);
+    VertexArray::Attribute posAttr = m_planetVao.enableVertexAttrib(0);
     posAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
     posAttr.setBinding(vertexBinding);
 
     // Bind instance buffer to vao binding position 1
-    VertexArray::BufferBinding instanceBinding = m_vao.getBinding(1);
+    VertexArray::BufferBinding instanceBinding = m_planetVao.getBinding(1);
     instanceBinding.bindVertexBuffer(m_instanceAttrBuf, 0, sizeof(InstanceAttrib));
     instanceBinding.setBindingDivisor(1);
 
     // Enable instance-wise attribute binding positions
-    VertexArray::Attribute offsetAttr = m_vao.enableVertexAttrib(1);
+    VertexArray::Attribute offsetAttr = m_planetVao.enableVertexAttrib(1);
     offsetAttr.setFormat(2, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, offset));
     offsetAttr.setBinding(instanceBinding);
 
-    VertexArray::Attribute sideAttr = m_vao.enableVertexAttrib(2);
+    VertexArray::Attribute sideAttr = m_planetVao.enableVertexAttrib(2);
     sideAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, side));
     sideAttr.setBinding(instanceBinding);
 
-    VertexArray::Attribute scaleAttr = m_vao.enableVertexAttrib(3);
+    VertexArray::Attribute scaleAttr = m_planetVao.enableVertexAttrib(3);
     scaleAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, scale));
     scaleAttr.setBinding(instanceBinding);
 
-    VertexArray::Attribute discardRegionAttr = m_vao.enableVertexAttrib(4);
+    VertexArray::Attribute discardRegionAttr = m_planetVao.enableVertexAttrib(4);
     discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
     discardRegionAttr.setBinding(instanceBinding);
 
-    VertexArray::Attribute texIdxAttr = m_vao.enableVertexAttrib(5);
+    VertexArray::Attribute texIdxAttr = m_planetVao.enableVertexAttrib(5);
     texIdxAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, texIdx));
     texIdxAttr.setBinding(instanceBinding);
 }
+
+struct PBOSync {
+    DeviceBuffer buf;
+    int texIdx;
+    GLsync sync;
+};
+
+struct PlanetRenderStates {
+    Texture terrainTextures;
+    Texture heightBases;
+    CircularBuffer<PBOSync> pbos;
+
+    std::vector<glm::i64vec2> snapNums{};
+    std::int64_t baseHeight = 0.0f;
+    glm::vec2 storedBase{};
+    DeviceBuffer planetUboBuf{};
+
+    PlanetRenderStates(Parameters const& params, Shader& terrainGenerator)
+        : terrainTextures(GL_TEXTURE_2D_ARRAY)
+        , heightBases(GL_TEXTURE_1D)
+        , pbos(params.numPbos)
+    {
+        // terrainTextures
+        terrainTextures.setWrapS(GL_CLAMP_TO_BORDER);
+        terrainTextures.setWrapT(GL_CLAMP_TO_BORDER);
+        terrainTextures.setMinFilter(GL_LINEAR);
+        terrainTextures.setMagFilter(GL_LINEAR);
+        terrainTextures.allocateStoarge3D(1, GL_R32F,
+            params.terrainTextureSize, params.terrainTextureSize, // width, height
+            params.terrainTextureCount); // array size
+
+        // initialize top-level lod
+        terrainGenerator.use();
+        terrainTextures.useAsImage(0, 0, GL_WRITE_ONLY, GL_R32F);
+        glDispatchCompute(params.terrainTextureSize / 32, params.terrainTextureSize / 32, 6);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        // heightBases
+        heightBases.allocateStorage1D(1, GL_RG32F, params.terrainTextureCount);
+
+        std::vector<glm::vec2> data(params.terrainTextureCount, { 0.0f, 0.0f });
+        heightBases.uploadTexture1D(0, 0, params.terrainTextureCount, GL_RG, GL_FLOAT, data);
+
+        // pbos
+        for (PBOSync& pbo : pbos) {
+            pbo.buf.allocateStorage(sizeof(GLfloat) * 3, GL_STREAM_COPY);
+        }
+    }
+};
 
 void RenderSystem::render(ECSEngine& engine)
 {
@@ -102,39 +152,21 @@ void RenderSystem::render(ECSEngine& engine)
             return;
         }
 
-        if (!planet.heightBases) {
-            planet.heightBases = std::make_shared<Texture>(GL_TEXTURE_1D);
-            planet.heightBases->allocateStorage1D(1, GL_RG32F, params.terrainTextureCount);
+        glm::dmat4 rotationMat = glm::rotate(glm::dmat4(1.0), -planet.angle, glm::dvec3(0, 0, 1));
+        glm::i64vec3 pos = rotationMat * glm::dvec4(centeredPos.pos, 1);
 
-            std::vector<glm::vec2> data(params.terrainTextureCount, { 0.0f, 0.0f });
-            planet.heightBases->uploadTexture1D(0, 0, params.terrainTextureCount, GL_RG, GL_FLOAT, data);
+        // initialize states
+        if (!planet.r) {
+            planet.r = std::make_shared<PlanetRenderStates>(params, m_terrainGenerator);
         }
 
-        // initialize top-level lod
-        if (!planet.terrainTextures) {
-            planet.terrainTextures = std::make_shared<Texture>(GL_TEXTURE_2D_ARRAY);
-
-            planet.terrainTextures->setWrapS(GL_CLAMP_TO_BORDER);
-            planet.terrainTextures->setWrapT(GL_CLAMP_TO_BORDER);
-            planet.terrainTextures->setMinFilter(GL_LINEAR);
-            planet.terrainTextures->setMagFilter(GL_LINEAR);
-            planet.terrainTextures->allocateStoarge3D(1, GL_R32F,
-                params.terrainTextureSize, params.terrainTextureSize, // width, height
-                params.terrainTextureCount); // array size
-
-            m_terrainGenerator.use();
-            planet.terrainTextures->useAsImage(0, 0, GL_WRITE_ONLY, GL_R32F);
-            glDispatchCompute(params.terrainTextureSize / 32, params.terrainTextureSize / 32, 6);
-            glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-        }
-
-        glm::dvec3 normPos = glm::normalize(glm::dvec3(centeredPos.pos));
+        glm::dvec3 normPos = glm::normalize(glm::dvec3(pos));
         auto cubeCoords = cubizePoint(normPos);
         auto derivs = derivatives(cubeCoords.pos, cubeCoords.side);
         auto curvs = curvature(cubeCoords.pos, cubeCoords.side);
 
-        glm::i64vec3 basePos = normPos * static_cast<double>(planet.radius + planet.baseHeight);
-        glm::i64vec3 baseOffset = centeredPos.pos - basePos;
+        glm::i64vec3 basePos = normPos * static_cast<double>(planet.radius + planet.r->baseHeight);
+        glm::i64vec3 baseOffset = pos - basePos;
 
         const double normRadius = static_cast<double>(planet.radius) / params.rUnit;
         const glm::vec3 normOffset = glm::dvec3(baseOffset) / static_cast<double>(params.rUnit);
@@ -150,7 +182,7 @@ void RenderSystem::render(ECSEngine& engine)
             }
         }
 
-        double distance = glm::length(glm::dvec3(centeredPos.pos)) - playerDistFromCore;
+        double distance = glm::length(glm::dvec3(pos)) - playerDistFromCore;
         double normalizedDistance = distance / static_cast<double>(planet.radius);
 
         const int logDistance = std::ilogb(normalizedDistance);
@@ -172,9 +204,9 @@ void RenderSystem::render(ECSEngine& engine)
 
             bool updateNow = false;
             if (lodUpdateIdx < 0) {
-                if (lod >= int(planet.snapNums.size())) {
+                if (lod >= int(planet.r->snapNums.size())) {
                     updateNow = true;
-                } else if (planet.snapNums[lod] != snapNums) {
+                } else if (planet.r->snapNums[lod] != snapNums) {
                     updateNow = true;
                 }
             }
@@ -186,14 +218,14 @@ void RenderSystem::render(ECSEngine& engine)
                 std::cout << "Update lod " << lod << " " << snapNums.x << ", " << snapNums.y << std::endl;
             } else {
                 // parent map pending update, update later
-                snapNums = planet.snapNums[lod];
+                snapNums = planet.r->snapNums[lod];
 
-                if (lod >= int(planet.snapNums.size())) {
+                if (lod >= int(planet.r->snapNums.size())) {
                     std::cout << "delayed lod creation " << lod << std::endl;
                     levelsOfDetail = lod;
                     break;
                 }
-                if (planet.snapNums[lod] != snapNums) {
+                if (planet.r->snapNums[lod] != snapNums) {
                     std::cout << "delayed update " << lod << std::endl;
                 }
             }
@@ -222,11 +254,10 @@ void RenderSystem::render(ECSEngine& engine)
 
             currentSnapNums.push_back(snapNums);
         }
-        planet.snapNums = currentSnapNums;
+        planet.r->snapNums = currentSnapNums;
 
         // update terrain textures
         if (lodUpdateIdx >= 0) {
-
             struct LodData {
                 glm::vec2 align;
                 glm::vec2 pDiff;
@@ -247,15 +278,15 @@ void RenderSystem::render(ECSEngine& engine)
                 double mod = scale * 2. * cellSize;
                 int index = 5 + lod;
                 int parentIdx = lod == 1 ? cubeCoords.side : index - 1;
-                glm::dvec2 center = glm::dvec2(planet.snapNums[lod]) * mod;
-                glm::dvec2 pCenter = glm::dvec2(planet.snapNums[lod - 1]) * mod * 2.0;
+                glm::dvec2 center = glm::dvec2(planet.r->snapNums[lod]) * mod;
+                glm::dvec2 pCenter = glm::dvec2(planet.r->snapNums[lod - 1]) * mod * 2.0;
 
                 if (lod == lodUpdateIdx) {
                     updateCenter = center;
                 }
 
                 LodData lodData;
-                lodData.align = glm::dvec2(eucmod(planet.snapNums[lod], snapSize)) * cellSize;
+                lodData.align = glm::dvec2(eucmod(planet.r->snapNums[lod], snapSize)) * cellSize;
                 lodData.pDiff = (center - pCenter) / (scale * 4);
                 lodData.scale = static_cast<float>(scale);
                 lodData.imgIdx = index;
@@ -275,9 +306,9 @@ void RenderSystem::render(ECSEngine& engine)
 
             // write to texture
             m_terrainDetailGenerator.use();
-            planet.terrainTextures->useLayerAsImage(0, 0, lodDataList[lodUpdateIdx].imgIdx, GL_WRITE_ONLY, GL_R32F);
-            planet.terrainTextures->useAsTexture(1);
-            planet.heightBases->useAsImage(2, 0, GL_READ_WRITE, GL_RG32F);
+            planet.r->terrainTextures.useLayerAsImage(0, 0, lodDataList[lodUpdateIdx].imgIdx, GL_WRITE_ONLY, GL_R32F);
+            planet.r->terrainTextures.useAsTexture(1);
+            planet.r->heightBases.useAsImage(2, 0, GL_READ_WRITE, GL_RG32F);
             m_lodUboBuf.use(GL_UNIFORM_BUFFER, 3);
 
             const int numWorkGroups = params.terrainTextureSize / 32;
@@ -301,41 +332,59 @@ void RenderSystem::render(ECSEngine& engine)
         m_instanceAttrBuf.setData(instanceAttribs, GL_STATIC_DRAW);
 
         // build proj view matrix
-        glm::dmat4 viewMat = glm::lookAt({}, scene.lookDirection, scene.upDirection);
+        glm::dmat4 viewMat = glm::lookAt({}, scene.lookDirection, scene.upDirection)
+            * glm::transpose(rotationMat); // transpose == inverse for rotation matrix
         double aspectRatio = static_cast<double>(scene.windowSize.x) / scene.windowSize.y;
         glm::dmat4 projMat = glm::perspective(glm::radians(90.0), aspectRatio, 0.1, 10.0);
 
         // set uniforms
-        m_planetShader.setUniform(0, projMat * viewMat);
-        m_planetShader.setUniform(1, glm::vec2(cubeCoords.pos));
-        m_planetShader.setUniform(2, glm::vec3(derivs.fx));
-        m_planetShader.setUniform(3, glm::vec3(derivs.fy));
-        m_planetShader.setUniform(4, glm::vec3(curvs.fxx));
-        m_planetShader.setUniform(5, glm::vec3(curvs.fxy));
-        m_planetShader.setUniform(6, glm::vec3(curvs.fyy));
-        m_planetShader.setUniform(7, cubeCoords.side);
-        m_planetShader.setUniform(8, glm::vec3(normOffset));
-        m_planetShader.setUniform(9, static_cast<float>(planet.terrainFactor));
-        m_planetShader.setUniform(10, planet.storedBase);
-        m_planetShader.setUniform(11, static_cast<float>(normRadius));
+        struct PlanetUbo {
+            glm::mat4 viewProjMat;
+            glm::vec4 xJac;
+            glm::vec4 yJac;
+            glm::vec4 xxCurv;
+            glm::vec4 xyCurv;
+            glm::vec4 yyCurv;
+            glm::vec4 eyeOffset;
+            glm::vec2 origin;
+            glm::vec2 uBase;
+            int playerSide;
+            float terrainFactor;
+            float radius;
+        };
+
+        PlanetUbo ubo;
+        ubo.viewProjMat = projMat * viewMat;
+        ubo.origin = cubeCoords.pos;
+        ubo.xJac = glm::vec4(derivs.fx, 0);
+        ubo.yJac = glm::vec4(derivs.fy, 0);
+        ubo.xxCurv = glm::vec4(curvs.fxx, 0);
+        ubo.xyCurv = glm::vec4(curvs.fxy, 0);
+        ubo.yyCurv = glm::vec4(curvs.fyy, 0);
+        ubo.playerSide = cubeCoords.side;
+        ubo.eyeOffset = glm::vec4(normOffset, 0);
+        ubo.terrainFactor = static_cast<float>(planet.terrainFactor);
+        ubo.uBase = planet.r->storedBase;
+        ubo.radius = static_cast<float>(normRadius);
+
+        planet.r->planetUboBuf.setData(RawBufferView(ubo), GL_DYNAMIC_DRAW);
 
         // render planet
         m_planetShader.use();
-        m_vao.use();
-        planet.terrainTextures->useAsTexture(0);
-        planet.heightBases->useAsImage(1, 0, GL_READ_ONLY, GL_RG32F);
+        m_planetVao.use();
+        planet.r->planetUboBuf.use(GL_UNIFORM_BUFFER, 0);
+        planet.r->terrainTextures.useAsTexture(1);
+        planet.r->heightBases.useAsImage(2, 0, GL_READ_ONLY, GL_RG32F);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
-        // initialize pbo
-        if (!planet.pbos) {
-            planet.pbos = std::make_shared<CircularBuffer<PBOSync>>(params.numPbos);
-            for (PBOSync& pbo : *planet.pbos) {
-                pbo.buf.allocateStorage(sizeof(GLfloat) * 3, GL_STREAM_COPY);
-            }
-        }
+        // render sky
+        m_skyShader.use();
+        m_planetVao.use();
+        planet.r->planetUboBuf.use(GL_UNIFORM_BUFFER, 0);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
-        if (planet.pbos->count()) {
-            PBOSync& pbo = planet.pbos->pop();
+        if (planet.r->pbos.count()) {
+            PBOSync& pbo = planet.r->pbos.pop();
 
             GLenum pboStatus = glClientWaitSync(pbo.sync, 0, 0);
             if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
@@ -343,20 +392,19 @@ void RenderSystem::render(ECSEngine& engine)
 
                 GLfloat* data = static_cast<GLfloat*>(pbo.buf.map(GL_READ_ONLY));
                 double height = static_cast<double>(data[0]);
-                planet.storedBase = { data[1], data[2] };
+                planet.r->storedBase = { data[1], data[2] };
                 double base = static_cast<double>(data[1]) + static_cast<double>(data[2]);
                 pbo.buf.unmap();
 
-                planet.baseHeight = std::int64_t(base * planet.terrainFactor * planet.radius);
+                planet.r->baseHeight = std::int64_t(base * planet.terrainFactor * planet.radius);
                 double adjustedHeight = height * planet.terrainFactor * planet.radius;
-                planet.playerTerrainHeight = std::int64_t(adjustedHeight) + planet.baseHeight;
-                planet.baseTexIdx = pbo.texIdx;
+                planet.playerTerrainHeight = std::int64_t(adjustedHeight) + planet.r->baseHeight;
             }
         }
 
         // read height value
-        if (planet.pbos->available() && higherLodAttribs.size()) {
-            PBOSync& pbo = planet.pbos->push();
+        if (planet.r->pbos.available() && higherLodAttribs.size()) {
+            PBOSync& pbo = planet.r->pbos.push();
 
             InstanceAttrib hLod = instanceAttribs.back();
             glm::vec2 coords = (hLod.offset + 1.0f) * 0.5f * float(params.terrainTextureSize);
@@ -364,13 +412,13 @@ void RenderSystem::render(ECSEngine& engine)
 
             pbo.texIdx = hLod.texIdx;
 
-            pbo.buf.copyTexture(*planet.terrainTextures, 0,
+            pbo.buf.copyTexture(planet.r->terrainTextures, 0,
                 { iCoords, pbo.texIdx },
                 { 1, 1, 1 },
                 GL_RED, GL_FLOAT, sizeof(GLfloat) * 1,
                 0); // offset into pbo
 
-            pbo.buf.copyTexture(*planet.heightBases, 0,
+            pbo.buf.copyTexture(planet.r->heightBases, 0,
                 { pbo.texIdx, 0, 0 },
                 { 1, 1, 1 },
                 GL_RG, GL_FLOAT, sizeof(GLfloat) * 2,
@@ -428,7 +476,8 @@ void RenderSystem::update(ECSEngine& engine, float)
 
     // Render stuff to framebuffer
     m_hdrFrameBuffer.use(GL_FRAMEBUFFER);
-    //glEnable(GL_MULTISAMPLE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEPTH_TEST);
 
     if (params.renderWireframe) {
@@ -440,7 +489,7 @@ void RenderSystem::update(ECSEngine& engine, float)
 
     // apply HDR
     glDisable(GL_DEPTH_TEST);
-    //glDisable(GL_MULTISAMPLE);
+    glDisable(GL_BLEND);
     glBlitNamedFramebuffer(m_hdrFrameBuffer.id(), m_hdrResolveFrameBuffer.id(),
         0, 0, scene.windowSize.x, scene.windowSize.y,
         0, 0, scene.windowSize.x, scene.windowSize.y,
@@ -451,7 +500,7 @@ void RenderSystem::update(ECSEngine& engine, float)
     }
 
     FrameBuffer::defaultBuffer().use(GL_FRAMEBUFFER);
-    m_hdrVao.use();
+    m_quadVao.use();
     m_hdrShader.use();
     m_hdrResolveColorTexture.useAsTexture(0);
     glDrawArrays(GL_TRIANGLES, 0, 3);

@@ -22,6 +22,7 @@ add_executable(OUGL
     src/entitysystems/rendersystem.cpp
     src/entitysystems/inputsystem.cpp
     src/entitysystems/shaders.cpp
+    src/entitysystems/planetsystem.cpp
 )
 
 set_target_properties(OUGL PROPERTIES

@@ -247,7 +247,7 @@ void main() {
 
     // generate heightmap by perlin noise
     vec2 xy = (fract(uv + lod.align) * 2 - 1) * lod.scale;
-    pixel.x += snoise(xy.xyy / pow(lod.scale, 1.5) * exp2(13)) * lod.scale / 16;
+    pixel.x += snoise(xy.xyy / lod.scale * exp2(13)) * pow(lod.scale, 0.8) / 16;
     //pixel.x += xy.x + xy.y;
 
     // output to a specific pixel in the image
