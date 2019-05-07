@@ -9,11 +9,12 @@ layout(std140, binding = 0) uniform Ubo {
     vec3 xyCurv;
     vec3 yyCurv;
     vec3 eyeOffset;
+    vec3 lightDir;
     vec2 origin;
     vec2 uBase;
     int playerSide;
     float terrainFactor;
-    float radius;
+    float innerRadius;
 };
 
 layout(binding = 1) uniform sampler2DArray tex;
@@ -98,10 +99,10 @@ void main() {
     if (playerSide == int(side)) {
         vCube = c + origin;
 
-        vec3 spherized = spherizePoint(vCube, playerSide, radius);
-        vec3 vBroad = spherized - spherizePoint(origin, playerSide, radius);
+        vec3 spherized = spherizePoint(vCube, playerSide, innerRadius);
+        vec3 vBroad = spherized - spherizePoint(origin, playerSide, innerRadius);
         vec3 vApprox = c.x * xJac + c.y * yJac + .5 * (c.x * c.x * xxCurv + 2. * c.x * c.y * xyCurv + c.y * c.y * yyCurv);
-        vApprox *= radius;
+        vApprox *= innerRadius;
         float mixFactor = smoothstep(0.0, 0.1, length(c));
 
         vPosition = mix(vApprox, vBroad, mixFactor);
@@ -119,8 +120,8 @@ void main() {
     else {
         vCube = c;
 
-        vec3 spherized = spherizePoint(vCube, int(side), radius);
-        vec3 vBroad = spherized - spherizePoint(origin, playerSide, radius);
+        vec3 spherized = spherizePoint(vCube, int(side), innerRadius);
+        vec3 vBroad = spherized - spherizePoint(origin, playerSide, innerRadius);
 
         vPosition = vBroad;
 
@@ -139,7 +140,7 @@ void main() {
     vec2 baseData = imageLoad(bases, vTexIdx).rg - uBase;
     float base = baseData.r + baseData.g;
     height = (height + base) * terrainFactor;
-    vPosition += normal * radius * height;
+    vPosition += normal * innerRadius * height;
 
     vPosition -= eyeOffset;
 

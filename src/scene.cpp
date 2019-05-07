@@ -2,14 +2,16 @@
 
 #include "components.h"
 #include "framebuffer.h"
+#include "glquery.h"
 #include "input.h"
 #include "parameters.h"
 
 #include "entitysystems/camerasystem.h"
 #include "entitysystems/inputsystem.h"
-#include "entitysystems/rendersystem.h"
 #include "entitysystems/planetsystem.h"
+#include "entitysystems/rendersystem.h"
 
+#include <GL/freeglut.h>
 #include <iostream>
 
 #include <glm/gtx/string_cast.hpp>
@@ -30,7 +32,12 @@ void Scene::reshapeWindow(int width, int height)
 
 Scene::Scene()
     : m_lastFrameTime(std::chrono::system_clock::now())
+    , m_queries(4)
 {
+    for (auto& query : m_queries) {
+        query = ou::GLQuery(GL_TIME_ELAPSED);
+    }
+
     glm::i64vec3 eye = { 4501787352203439, 5564338967149668, 9224185566471351 };
 
     // scene entity
@@ -68,9 +75,36 @@ void Scene::render()
     auto deltaTime = now - m_lastFrameTime;
     m_lastFrameTime = now;
 
+    // query for GPU time
+    bool queryPending = false;
+    if (m_queries.available()) {
+        GLQuery& query = m_queries.push();
+        glBeginQuery(GL_TIME_ELAPSED, query.id());
+        queryPending = true;
+    }
+
     // update & render
     m_engine.update(duration<float>(deltaTime).count());
+    glutSwapBuffers();
 
+    // retrieve GPU time query
+    if (queryPending) {
+        glEndQuery(GL_TIME_ELAPSED);
+    }
+
+    while (m_queries.count()) {
+        GLQuery& top = m_queries.top();
+        GLint elapsed = -1;
+        glGetQueryObjectiv(top.id(), GL_QUERY_RESULT_NO_WAIT, &elapsed);
+        if (elapsed != -1) {
+            m_queries.pop();
+            m_totalGpuTime += nanoseconds(elapsed);
+        } else {
+            break;
+        }
+    }
+
+    // calculate CPU time
     m_elapsedTime += deltaTime;
 
     auto elapsed = system_clock::now() - now;
@@ -83,9 +117,14 @@ void Scene::render()
 
         std::cout << "CPU Processing Time: "
                   << m_totalWorkTime.count() / m_frameCount * 1000.f
-                  << "ms" << std::endl;
+                  << "ms / 16ms" << std::endl;
+
+        std::cout << "GPU Proceesing Time: "
+                  << m_totalGpuTime.count() / m_frameCount * 1000.f
+                  << "ms / 16ms" << std::endl;
 
         m_totalWorkTime = 0s;
+        m_totalGpuTime = 0s;
         m_frameCount = 0;
     }
 }

@@ -346,6 +346,7 @@ void RenderSystem::render(ECSEngine& engine)
             glm::vec4 xyCurv;
             glm::vec4 yyCurv;
             glm::vec4 eyeOffset;
+            glm::vec4 lightDir;
             glm::vec2 origin;
             glm::vec2 uBase;
             int playerSide;
@@ -366,6 +367,7 @@ void RenderSystem::render(ECSEngine& engine)
         ubo.terrainFactor = static_cast<float>(planet.terrainFactor);
         ubo.uBase = planet.r->storedBase;
         ubo.radius = static_cast<float>(normRadius);
+        ubo.lightDir = glm::vec4(0, 0, 1, 0);
 
         planet.r->planetUboBuf.setData(RawBufferView(ubo), GL_DYNAMIC_DRAW);
 
@@ -383,8 +385,8 @@ void RenderSystem::render(ECSEngine& engine)
         planet.r->planetUboBuf.use(GL_UNIFORM_BUFFER, 0);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
-        if (planet.r->pbos.count()) {
-            PBOSync& pbo = planet.r->pbos.pop();
+        while (planet.r->pbos.count()) {
+            PBOSync& pbo = planet.r->pbos.top();
 
             GLenum pboStatus = glClientWaitSync(pbo.sync, 0, 0);
             if (pboStatus == GL_ALREADY_SIGNALED || pboStatus == GL_CONDITION_SATISFIED) {
@@ -399,6 +401,11 @@ void RenderSystem::render(ECSEngine& engine)
                 planet.r->baseHeight = std::int64_t(base * planet.terrainFactor * planet.radius);
                 double adjustedHeight = height * planet.terrainFactor * planet.radius;
                 planet.playerTerrainHeight = std::int64_t(adjustedHeight) + planet.r->baseHeight;
+
+                planet.r->pbos.pop();
+            }
+            else {
+                break;
             }
         }
 

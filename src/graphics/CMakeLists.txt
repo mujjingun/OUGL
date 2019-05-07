@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME}_Graphics
     shader.cpp
     texture.cpp
     vertexarray.cpp
+    glquery.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_Graphics

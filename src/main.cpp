@@ -8,10 +8,12 @@
 #include <unordered_map>
 
 #include "scene.h"
-
-static std::unique_ptr<ou::Scene> scene;
+#include "circularbuffer.h"
+#include "glquery.h"
 
 namespace ou {
+
+static Scene* pScene;
 
 class Callbacks {
 public:
@@ -23,42 +25,41 @@ public:
 
     static void renderScene(void)
     {
-        scene->render();
-        glutSwapBuffers();
+        pScene->render();
     }
 
     static void keyboardDown(unsigned char key, int, int)
     {
-        scene->input().keyDown(key);
+        pScene->input().keyDown(key);
     }
 
     static void keyboardUp(unsigned char key, int, int)
     {
-        scene->input().keyUp(key);
+        pScene->input().keyUp(key);
     }
 
     static void mouseMove(int x, int y)
     {
-        scene->input().mouseMove(x, y);
+        pScene->input().mouseMove(x, y);
     }
 
     static void mouseEvent(int button, int state, int, int)
     {
-        scene->input().mouseClick(button, state);
+        pScene->input().mouseClick(button, state);
     }
 
     static void mouseEntry(int state)
     {
         if (state == GLUT_ENTERED) {
-            scene->input().mouseEnter();
+            pScene->input().mouseEnter();
         } else if (state == GLUT_LEFT) {
-            scene->input().mouseLeft();
+            pScene->input().mouseLeft();
         }
     }
 
     static void reshapeWindow(int width, int height)
     {
-        scene->reshapeWindow(width, height);
+        pScene->reshapeWindow(width, height);
     }
 
     static void GLAPIENTRY openglDebugCallback(GLenum source, GLenum type, GLenum id, GLenum severity,
@@ -158,7 +159,8 @@ int main(int argc, char* argv[])
     glDebugMessageCallback(ou::Callbacks::openglDebugCallback, nullptr);
 
     try {
-        scene = std::make_unique<ou::Scene>();
+        ou::Scene scene;
+        ou::pScene = &scene;
 
         // enter GLUT event processing cycle
         glutMainLoop();

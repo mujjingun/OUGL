@@ -6,7 +6,7 @@ namespace ou {
 
 Parameters::Parameters()
     : maxLods(30)
-    , gridSize(128)
+    , gridSize(64)
     , snapSize(4)
 #if LOD_DEBUG
     , zoomFactor(2)
@@ -23,7 +23,7 @@ Parameters::Parameters()
     , terrainTextureSize(1024)
     , playerHeight(1000)
     , maxRenderLods(15)
-    , msaaSamples(4)
+    , msaaSamples(1)
     , numPbos(4)
     , terrainTextureCount(maxLods + 6)
     , rUnit(6371000000000)
