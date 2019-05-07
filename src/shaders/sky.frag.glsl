@@ -10,6 +10,7 @@ layout(std140, binding = 0) uniform Ubo {
     vec3 yyCurv;
     vec3 eyeOffset;
     vec3 lightDir;
+    vec3 eyePos;
     vec2 origin;
     vec2 uBase;
     int playerSide;
@@ -61,11 +62,7 @@ void main() {
     float fCos = dot(lightDir, direction) / length(direction);
     float fCos2 = fCos * fCos;
     color.rgb = getRayleighPhase(fCos2) * vC0 + getMiePhase(fCos, fCos2, g, g2) * vC1;
-    //color.rgb = clamp(color.rgb, 0, 1);
-    color.a = color.b;
-
-    color = vec4(debug.rrr, 0.5);
-    //color = vec4(1, 0, 0, 0.5);
+    color.a = 0;
 }
 
 )GLSL"

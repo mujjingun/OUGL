@@ -10,6 +10,7 @@ layout(std140, binding = 0) uniform Ubo {
     vec3 yyCurv;
     vec3 eyeOffset;
     vec3 lightDir;
+    vec3 eyePos;
     vec2 origin;
     vec2 uBase;
     int playerSide;

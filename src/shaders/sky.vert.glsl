@@ -10,6 +10,7 @@ layout(std140, binding = 0) uniform Ubo {
     vec3 yyCurv;
     vec3 eyeOffset;
     vec3 lightDir;
+    vec3 eyePos;
     vec2 origin;
     vec2 uBase;
     int playerSide;
@@ -88,12 +89,12 @@ void derivative(vec2 cube, int side, out vec3 dfdx, out vec3 dfdy)
 
 #define M_PI 3.1415926535897932384626433832795
 // Thickness of the atmosphere
-const float th = 0.001;
+const float th = 0.1;
 
 // The scale depth (the altitude at which the average atmospheric density is found)
-const float scaleDepth = 0.25;
+const float scaleDepth = 0.05;
 const int nSamples = 3;
-const vec3 invWavelength = 1.0 / vec3(0.650, 0.570, 0.475);
+const vec3 invWavelength = 1.0 / pow(vec3(0.650, 0.570, 0.475), vec3(4.0));
 const float kr = 0.0025; // Rayleigh scattering constant
 const float kr4PI = kr * 4.0 * M_PI;
 const float km = 0.0010; // Mie scattering constant
@@ -165,32 +166,28 @@ void main() {
     }
 
     // adjust with base height
-    float base = uBase.r + uBase.g;
-    float height = -base * terrainFactor;
-    vPosition += normal * innerRadius * height;
+    float base = (uBase.r + uBase.g) * terrainFactor;
+    vPosition -= normal * innerRadius * base;
     vPosition -= eyeOffset;
-
-    // Sean O'Neil's accurate atmospheric scattering
 
     // adjust for atmosphere thickness
     vPosition += normal * (outerRadius - innerRadius);
 
     gl_Position = viewProjMat * vec4(vPosition, 1);
 
+// Sean O'Neil's accurate atmospheric scattering
     // get the ray from the camera to the vertex and its length
     // (which is the far point of the ray passing through the
     //  atmosphere)
-    float eyeHeight = length(eyeOffset);
-    const vec3 eyePos = vPosition + eyeOffset;
-    vec3 ray = vPosition - eyePos;
+    //const vec3 eyePos = normalize(eyeOffset) * innerRadius * (1 + base) + eyeOffset;
+    vec3 ray = vPosition;
     float far = length(ray);
     ray /= far;
 
     // Calculate the closest intersection of the ray with
     // the outer atmosphere
-    float dist = (eyeHeight + innerRadius);
-    float near = getNearIntersection(eyePos, ray, dist * dist, outerRadius2);
-    debug.r = near;
+    float cameraHeight2 = dot(eyePos, eyePos);
+    float near = getNearIntersection(eyePos, ray, cameraHeight2, outerRadius2);
     vec3 start = eyePos + ray * near;
     far -= near;
     float startAngle = dot(ray, start) / outerRadius;

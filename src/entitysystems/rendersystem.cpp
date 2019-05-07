@@ -347,6 +347,7 @@ void RenderSystem::render(ECSEngine& engine)
             glm::vec4 yyCurv;
             glm::vec4 eyeOffset;
             glm::vec4 lightDir;
+            glm::vec4 eyePos;
             glm::vec2 origin;
             glm::vec2 uBase;
             int playerSide;
@@ -368,6 +369,7 @@ void RenderSystem::render(ECSEngine& engine)
         ubo.uBase = planet.r->storedBase;
         ubo.radius = static_cast<float>(normRadius);
         ubo.lightDir = glm::vec4(0, 0, 1, 0);
+        ubo.eyePos = glm::vec4(glm::dvec3(pos) / static_cast<double>(params.rUnit), 0);
 
         planet.r->planetUboBuf.setData(RawBufferView(ubo), GL_DYNAMIC_DRAW);
 
@@ -380,6 +382,7 @@ void RenderSystem::render(ECSEngine& engine)
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
         // render sky
+        glFrontFace(GL_CW);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
         m_skyShader.use();
@@ -387,6 +390,7 @@ void RenderSystem::render(ECSEngine& engine)
         planet.r->planetUboBuf.use(GL_UNIFORM_BUFFER, 0);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
         glDisable(GL_BLEND);
+        glFrontFace(GL_CCW);
 
         while (planet.r->pbos.count()) {
             PBOSync& pbo = planet.r->pbos.top();
