@@ -380,10 +380,13 @@ void RenderSystem::render(ECSEngine& engine)
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
         // render sky
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
         m_skyShader.use();
         m_planetVao.use();
         planet.r->planetUboBuf.use(GL_UNIFORM_BUFFER, 0);
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
+        glDisable(GL_BLEND);
 
         while (planet.r->pbos.count()) {
             PBOSync& pbo = planet.r->pbos.top();
@@ -403,8 +406,7 @@ void RenderSystem::render(ECSEngine& engine)
                 planet.playerTerrainHeight = std::int64_t(adjustedHeight) + planet.r->baseHeight;
 
                 planet.r->pbos.pop();
-            }
-            else {
+            } else {
                 break;
             }
         }
@@ -483,8 +485,6 @@ void RenderSystem::update(ECSEngine& engine, float)
 
     // Render stuff to framebuffer
     m_hdrFrameBuffer.use(GL_FRAMEBUFFER);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEPTH_TEST);
 
     if (params.renderWireframe) {
@@ -496,7 +496,6 @@ void RenderSystem::update(ECSEngine& engine, float)
 
     // apply HDR
     glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
     glBlitNamedFramebuffer(m_hdrFrameBuffer.id(), m_hdrResolveFrameBuffer.id(),
         0, 0, scene.windowSize.x, scene.windowSize.y,
         0, 0, scene.windowSize.x, scene.windowSize.y,
