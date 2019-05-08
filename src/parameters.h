@@ -22,6 +22,7 @@ struct Parameters {
     int numPbos;
     int terrainTextureCount;
     std::int64_t rUnit;
+    int numLats, numLons;
 };
 }
 

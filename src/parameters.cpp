@@ -27,6 +27,8 @@ Parameters::Parameters()
     , numPbos(4)
     , terrainTextureCount(maxLods + 6)
     , rUnit(6371000000000)
+    , numLats(10)
+    , numLons(10)
 {
 }
 

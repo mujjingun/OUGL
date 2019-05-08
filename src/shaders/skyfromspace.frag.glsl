@@ -18,15 +18,12 @@ layout(std140, binding = 0) uniform Ubo {
     float innerRadius;
 };
 
-in vec2 vUv;
 in vec2 vCube;
 in float vLogz;
 in vec3 vPosition;
-flat in vec4 vDiscardReg;
 
 in vec3 vC0; // rayleigh color
 in vec3 vC1; // mie color
-in vec4 debug;
 
 out vec4 color;
 
@@ -47,15 +44,6 @@ const float g = -0.990; // The Mie phase asymmetry factor
 const float g2 = g * g;
 
 void main() {
-    // Don't render outside the face
-    if (vCube.x < -1 || vCube.y < -1 || vCube.x > 1 || vCube.y > 1) {
-        discard;
-    }
-    // Discard center region
-    if (vUv.x >= vDiscardReg.x && vUv.y >= vDiscardReg.y && vUv.x <= vDiscardReg.z && vUv.y <= vDiscardReg.w) {
-        discard;
-    }
-
     gl_FragDepth = vLogz;
 
     vec3 direction = vPosition;

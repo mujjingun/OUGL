@@ -27,16 +27,12 @@ layout(location = 2) in int side;
 layout(location = 3) in float mapScale;
 layout(location = 4) in vec4 discardRegion;
 
-out vec2 vUv;
-out vec2 vCube;
 out vec3 vPosition;
 out vec3 vFx, vFy;
 out float vLogz;
-flat out vec4 vDiscardReg;
 
 out vec3 vC0; // rayleigh color
 out vec3 vC1; // mie color
-out vec4 debug;
 
 vec3 applySide(vec3 cube, int side)
 {
@@ -116,18 +112,15 @@ float ascale(float fCos)
 }
 
 void main() {
-    vUv = pos;
-    vDiscardReg = discardRegion;
-
     float outerRadius = innerRadius * (1 + th);
     float outerRadius2 = outerRadius * outerRadius;
 
     vec2 c = pos * mapScale + offset;
     vec3 normal;
     if (playerSide == int(side)) {
-        vCube = c + origin;
+        vec2 cube = c + origin;
 
-        vec3 spherized = spherizePoint(vCube, playerSide, outerRadius);
+        vec3 spherized = spherizePoint(cube, playerSide, outerRadius);
         vec3 vBroad = spherized - spherizePoint(origin, playerSide, outerRadius);
 
         // approximate the sphere with taylor approximation
@@ -142,7 +135,7 @@ void main() {
         vec3 fxApprox = xJac + xxCurv * c.x + xyCurv * c.y;
         vec3 fyApprox = yJac + xyCurv * c.x + yyCurv * c.y;
         vec3 fxBroad, fyBroad;
-        derivative(vCube, playerSide, fxBroad, fyBroad);
+        derivative(cube, playerSide, fxBroad, fyBroad);
         vFx = mix(fxApprox, fxBroad, mixFactor);
         vFy = mix(fyApprox, fyBroad, mixFactor);
 
@@ -151,14 +144,12 @@ void main() {
         normal = normalize(mix(nApprox, normalize(spherized), mixFactor));
     }
     else {
-        vCube = c;
-
-        vec3 spherized = spherizePoint(vCube, int(side), outerRadius);
+        vec3 spherized = spherizePoint(c, int(side), outerRadius);
         vec3 vBroad = spherized - spherizePoint(origin, playerSide, outerRadius);
 
         vPosition = vBroad;
 
-        vec3 fxBroad, fyBroad; derivative(vCube, int(side), fxBroad, fyBroad);
+        vec3 fxBroad, fyBroad; derivative(c, int(side), fxBroad, fyBroad);
         vFx = fxBroad;
         vFy = fyBroad;
 

@@ -25,12 +25,14 @@ class RenderSystem : public EntitySystem {
 
     // Planet
     Shader m_planetShader;
-    Shader m_skyShader;
     Shader m_terrainGenerator, m_terrainDetailGenerator;
     VertexArray m_planetVao;
     DeviceBuffer m_meshBuf, m_instanceAttrBuf;
     std::size_t m_vertexCount;
     DeviceBuffer m_lodUboBuf;
+
+    // Sky
+    Shader m_skyFromSpaceShader;
 
 public:
     RenderSystem(Parameters const& params);

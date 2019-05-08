@@ -25,68 +25,70 @@ struct InstanceAttrib {
 RenderSystem::RenderSystem(const Parameters& params)
     : m_hdrShader(quadVertShaderSrc, hdrFragShaderSrc)
     , m_planetShader(planetVertShaderSrc, planetFragShaderSrc)
-    , m_skyShader(skyVertShaderSrc, skyFragShaderSrc)
     , m_terrainGenerator(terrainShaderSrc)
     , m_terrainDetailGenerator(terrain2ShaderSrc)
+    , m_skyFromSpaceShader(skyFromSpaceVertShaderSrc, skyFromSpaceFragShaderSrc)
 {
     glEnable(GL_CULL_FACE);
 
-    std::vector<glm::vec2> gridPoints;
-    for (float col = 0; col < params.gridSize; ++col) {
-        for (float row = 0; row < params.gridSize; ++row) {
-            gridPoints.push_back({ row, col });
-            gridPoints.push_back({ row + 1, col });
-            gridPoints.push_back({ row + 1, col + 1 });
+    {
+        // Create vertex buffer and fill it
+        std::vector<glm::vec2> gridPoints;
+        for (float col = 0; col < params.gridSize; ++col) {
+            for (float row = 0; row < params.gridSize; ++row) {
+                gridPoints.push_back({ row, col });
+                gridPoints.push_back({ row + 1, col });
+                gridPoints.push_back({ row + 1, col + 1 });
 
-            gridPoints.push_back({ row, col });
-            gridPoints.push_back({ row + 1, col + 1 });
-            gridPoints.push_back({ row, col + 1 });
+                gridPoints.push_back({ row, col });
+                gridPoints.push_back({ row + 1, col + 1 });
+                gridPoints.push_back({ row, col + 1 });
+            }
         }
+
+        for (auto& point : gridPoints) {
+            point = point / static_cast<float>(params.gridSize) * 2.f - 1.f;
+        }
+
+        m_vertexCount = gridPoints.size();
+
+        m_meshBuf.setData(gridPoints, GL_STATIC_DRAW);
+
+        // Bind vertex buffer to vao binding position 0
+        VertexArray::BufferBinding vertexBinding = m_planetVao.getBinding(0);
+        vertexBinding.bindVertexBuffer(m_meshBuf, 0, sizeof(glm::vec2));
+
+        // Enable attribute location 0
+        VertexArray::Attribute posAttr = m_planetVao.enableVertexAttrib(0);
+        posAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
+        posAttr.setBinding(vertexBinding);
+
+        // Bind instance buffer to vao attribute location 1
+        VertexArray::BufferBinding instanceBinding = m_planetVao.getBinding(1);
+        instanceBinding.bindVertexBuffer(m_instanceAttrBuf, 0, sizeof(InstanceAttrib));
+        instanceBinding.setBindingDivisor(1);
+
+        // Enable instance-wise attribute attribute locations
+        VertexArray::Attribute offsetAttr = m_planetVao.enableVertexAttrib(1);
+        offsetAttr.setFormat(2, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, offset));
+        offsetAttr.setBinding(instanceBinding);
+
+        VertexArray::Attribute sideAttr = m_planetVao.enableVertexAttrib(2);
+        sideAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, side));
+        sideAttr.setBinding(instanceBinding);
+
+        VertexArray::Attribute scaleAttr = m_planetVao.enableVertexAttrib(3);
+        scaleAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, scale));
+        scaleAttr.setBinding(instanceBinding);
+
+        VertexArray::Attribute discardRegionAttr = m_planetVao.enableVertexAttrib(4);
+        discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
+        discardRegionAttr.setBinding(instanceBinding);
+
+        VertexArray::Attribute texIdxAttr = m_planetVao.enableVertexAttrib(5);
+        texIdxAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, texIdx));
+        texIdxAttr.setBinding(instanceBinding);
     }
-
-    for (auto& point : gridPoints) {
-        point = point / static_cast<float>(params.gridSize) * 2.f - 1.f;
-    }
-
-    m_vertexCount = gridPoints.size();
-
-    // Create vertex buffer and fill it
-    m_meshBuf.setData(gridPoints, GL_STATIC_DRAW);
-
-    // Bind vertex buffer to vao binding position 0
-    VertexArray::BufferBinding vertexBinding = m_planetVao.getBinding(0);
-    vertexBinding.bindVertexBuffer(m_meshBuf, 0, sizeof(glm::vec2));
-
-    // Enable binding position 0
-    VertexArray::Attribute posAttr = m_planetVao.enableVertexAttrib(0);
-    posAttr.setFormat(2, GL_FLOAT, GL_FALSE, 0);
-    posAttr.setBinding(vertexBinding);
-
-    // Bind instance buffer to vao binding position 1
-    VertexArray::BufferBinding instanceBinding = m_planetVao.getBinding(1);
-    instanceBinding.bindVertexBuffer(m_instanceAttrBuf, 0, sizeof(InstanceAttrib));
-    instanceBinding.setBindingDivisor(1);
-
-    // Enable instance-wise attribute binding positions
-    VertexArray::Attribute offsetAttr = m_planetVao.enableVertexAttrib(1);
-    offsetAttr.setFormat(2, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, offset));
-    offsetAttr.setBinding(instanceBinding);
-
-    VertexArray::Attribute sideAttr = m_planetVao.enableVertexAttrib(2);
-    sideAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, side));
-    sideAttr.setBinding(instanceBinding);
-
-    VertexArray::Attribute scaleAttr = m_planetVao.enableVertexAttrib(3);
-    scaleAttr.setFormat(1, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, scale));
-    scaleAttr.setBinding(instanceBinding);
-
-    VertexArray::Attribute discardRegionAttr = m_planetVao.enableVertexAttrib(4);
-    discardRegionAttr.setFormat(4, GL_FLOAT, GL_FALSE, offsetof(InstanceAttrib, discardRegion));
-    discardRegionAttr.setBinding(instanceBinding);
-
-    VertexArray::Attribute texIdxAttr = m_planetVao.enableVertexAttrib(5);
-    texIdxAttr.setIFormat(1, GL_SHORT, offsetof(InstanceAttrib, texIdx));
-    texIdxAttr.setBinding(instanceBinding);
 }
 
 struct PBOSync {
@@ -382,15 +384,18 @@ void RenderSystem::render(ECSEngine& engine)
         glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
 
         // render sky
-        glFrontFace(GL_CW);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
-        m_skyShader.use();
+
+        // sky from space
+        glFrontFace(GL_CW);
+        m_skyFromSpaceShader.use();
         m_planetVao.use();
         planet.r->planetUboBuf.use(GL_UNIFORM_BUFFER, 0);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, instanceAttribs.size());
-        glDisable(GL_BLEND);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, m_vertexCount, 6);
         glFrontFace(GL_CCW);
+
+        glDisable(GL_BLEND);
 
         while (planet.r->pbos.count()) {
             PBOSync& pbo = planet.r->pbos.top();

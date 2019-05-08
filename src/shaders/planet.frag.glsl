@@ -30,6 +30,9 @@ flat in float vScale;
 flat in vec4 vDiscardReg;
 flat in int vTexIdx;
 
+in vec3 vC0; // atmosphere color
+in vec3 vC1; // attenuation
+
 out vec4 color;
 
 const ivec2 offsets[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
@@ -44,11 +47,12 @@ vec2 getGradient(vec2 uv, float t, float span) {
 
 void main() {
     // Don't render outside the face
-    if (vCube.x < -1 || vCube.y < -1 || vCube.x > 1 || vCube.y > 1) {
+    if (vScale < 1 && (vCube.x < -1 || vCube.y < -1 || vCube.x > 1 || vCube.y > 1)) {
         discard;
     }
     // Discard center region
-    if (vUv.x >= vDiscardReg.x && vUv.y >= vDiscardReg.y && vUv.x <= vDiscardReg.z && vUv.y <= vDiscardReg.w) {
+    if (vUv.x > vDiscardReg.x && vUv.y > vDiscardReg.y
+        && vUv.x < vDiscardReg.z && vUv.y < vDiscardReg.w) {
         discard;
     }
 
@@ -72,15 +76,13 @@ void main() {
     vec3 groundColor = mix(vec3(0.3, 0.3, 0.3), vec3(0.1, 0.6, 0.0), 1 - step(slope, 0.9));
     color.xyz = mix(groundColor, vec3(0.0, 0.0, 0.5), step(height, 0.0));
 
-    float light = max(dot(normal, lightDir) * 1.0, 0.001);
     vec3 lightReflect = normalize(reflect(lightDir, normal));
     vec3 vertexToEye = normalize(vPosition);
     float specularFactor = dot(vertexToEye, lightReflect);
     specularFactor = pow(max(0, specularFactor), 40);
     specularFactor = mix(specularFactor * 0.1, specularFactor * 7, step(height, 0.0));
-    light += specularFactor;
 
-    color.rgb *= light;
-    color.a = 1;
+    color.rgb = vC0 + color.rgb * vC1;
+    color.rgb *= 1 + specularFactor;
 }
 )GLSL"

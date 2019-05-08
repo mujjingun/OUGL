@@ -7,11 +7,11 @@ const char* const quadVertShaderSrc =
 const char* const hdrFragShaderSrc =
 #include "shaders/hdr.frag.glsl"
     ;
-const char* const skyVertShaderSrc =
-#include "shaders/sky.vert.glsl"
+const char* const skyFromSpaceVertShaderSrc =
+#include "shaders/skyfromspace.vert.glsl"
     ;
-const char* const skyFragShaderSrc =
-#include "shaders/sky.frag.glsl"
+const char* const skyFromSpaceFragShaderSrc =
+#include "shaders/skyfromspace.frag.glsl"
     ;
 const char* const planetVertShaderSrc =
 #include "shaders/planet.vert.glsl"

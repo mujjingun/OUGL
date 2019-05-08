@@ -40,6 +40,9 @@ flat out float vScale;
 flat out vec4 vDiscardReg;
 flat out int vTexIdx;
 
+out vec3 vC0; // atmosphere color
+out vec3 vC1; // attenuation
+
 vec3 applySide(vec3 cube, int side)
 {
     switch (side) {
@@ -89,15 +92,43 @@ void derivative(vec2 cube, int side, out vec3 dfdx, out vec3 dfdy)
     dfdy = applySide(dfdy, side);
 }
 
+#define M_PI 3.1415926535897932384626433832795
+// Thickness of the atmosphere
+const float th = 0.1;
+
+// The scale depth (the altitude at which the average atmospheric density is found)
+const float scaleDepth = 0.05;
+const int nSamples = 3;
+const vec3 invWavelength = 1.0 / pow(vec3(0.650, 0.570, 0.475), vec3(4.0));
+const float kr = 0.0025; // Rayleigh scattering constant
+const float kr4PI = kr * 4.0 * M_PI;
+const float km = 0.0010; // Mie scattering constant
+const float km4PI = km * 4.0 * M_PI;
+const float ESun = 20.0; // intensity of the sun
+
+float getNearIntersection(vec3 pos, vec3 ray, float distance2, float radius2) {
+    float B = 2.0 * dot(pos, ray);
+    float C = distance2 - radius2;
+    float det = max(0.0, B*B - 4.0 * C);
+    return 0.5 * (-B - sqrt(det));
+}
+
+// The scale equation calculated by Vernier's Graphical Analysis
+float ascale(float fCos)
+{
+    float x = 1.0 - fCos;
+    return scaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
+}
+
 void main() {
     vUv = pos;
     vDiscardReg = discardRegion;
     vTexIdx = texIdx;
     vScale = scale;
 
-    vec2 c = pos * scale + offset;
     vec3 normal;
     if (playerSide == int(side)) {
+        vec2 c = pos * scale + offset;
         vCube = c + origin;
 
         vec3 spherized = spherizePoint(vCube, playerSide, innerRadius);
@@ -119,7 +150,7 @@ void main() {
         normal = normalize(mix(nApprox, normalize(spherized), mixFactor));
     }
     else {
-        vCube = c;
+        vCube = pos;
 
         vec3 spherized = spherizePoint(vCube, int(side), innerRadius);
         vec3 vBroad = spherized - spherizePoint(origin, playerSide, innerRadius);
@@ -147,11 +178,63 @@ void main() {
 
     gl_Position = viewProjMat * vec4(vPosition, 1);
 
+// Sean O'Neil's accurate atmospheric scattering
+    float outerRadius = innerRadius * (1 + th);
+    float outerRadius2 = outerRadius * outerRadius;
+
+    // get the ray from the camera to the vertex and its length
+    // (which is the far point of the ray passing through the
+    //  atmosphere)
+    vec3 cpos = eyePos + vPosition;
+    vec3 ray = vPosition;
+    float far = length(ray);
+    ray /= far;
+
+    // Calculate the closest intersection of the ray with
+    // the outer atmosphere
+    float cameraHeight2 = dot(eyePos, eyePos);
+    float near = getNearIntersection(eyePos, ray, cameraHeight2, outerRadius2);
+
+    // Calculate the ray's starting position, then calculate its scattering offset
+    vec3 start = eyePos + ray * near;
+    far -= near;
+    float depth = exp((innerRadius - outerRadius) / scaleDepth);
+    float cameraAngle = dot(-ray, cpos);
+    float lightAngle = dot(lightDir, cpos);
+    float cameraScale = ascale(cameraAngle);
+    float lightScale = ascale(lightAngle);
+    float cameraOffset = depth * cameraScale;
+    float temp = (lightScale + cameraScale);
+
+    // initialize the scattering loop variables
+    float pScale = 1.0 / (outerRadius - innerRadius);
+    float sampleLength = far / nSamples;
+    float scaledLength = sampleLength * pScale;
+    vec3 sampleRay = ray * sampleLength;
+    vec3 samplePoint = start + sampleRay * 0.5;
+
+    // now loop through the sample points
+    vec3 frontColor = vec3(0.0);
+    vec3 attenuate = vec3(0.0);
+    for (int i = 0; i < nSamples; ++i) {
+        float height = length(samplePoint);
+        float depth = exp((pScale / scaleDepth) * (innerRadius - height));
+        float scatter = depth * temp - cameraOffset;
+        attenuate = exp(-scatter * (invWavelength * kr4PI + km4PI));
+        frontColor += attenuate * (depth * scaledLength);
+        samplePoint += sampleRay;
+    }
+
+    vC0 = frontColor * (invWavelength * kr * ESun + km * ESun);
+    vC1 = attenuate;
+
     // logarithmic depth
-    const float C = 1e9;
-    const float far = 10000.0;
-    const float FC = 1.0 / log(far * C + 1);
-    vLogz = log(gl_Position.w * C + 1) * FC;
-    gl_Position.z = (2 * vLogz - 1) * gl_Position.w;
+    {
+        const float C = 1e9;
+        const float far = 10000.0;
+        const float FC = 1.0 / log(far * C + 1);
+        vLogz = log(gl_Position.w * C + 1) * FC;
+        gl_Position.z = (2 * vLogz - 1) * gl_Position.w;
+    }
 }
 )GLSL"
